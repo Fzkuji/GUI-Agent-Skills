@@ -91,31 +91,19 @@
 [10s] 👁 CONFIRM — Process list empty → GlobalProtect terminated ✅
 ```
 
-## 🚀 Quick Start
+## 🦞 Quick Start
 
 ```bash
-# 1. Clone into your skills directory
-git clone https://github.com/Fzkuji/GUIClaw.git
-cd GUIClaw
-
-# 2. Install everything (Python env, models, dependencies)
-bash scripts/setup.sh
-
-# 3. Done — your agent can now control any desktop app
-```
-
-## 🦞 OpenClaw Integration
-
-GUIClaw is an OpenClaw-compatible skill. Install it and your agent automatically gains desktop vision.
-
-**1️⃣ Clone into OpenClaw skills directory:**
-```bash
+# 1. Clone into OpenClaw skills directory
 cd ~/.openclaw/workspace/skills
 git clone https://github.com/Fzkuji/GUIClaw.git gui-agent
+
+# 2. Install everything (Python env, models, dependencies)
 bash gui-agent/scripts/setup.sh
+
+# 3. Add to OpenClaw config (~/.openclaw/openclaw.json)
 ```
 
-**2️⃣ Add to OpenClaw config** (`~/.openclaw/openclaw.json`):
 ```json
 {
   "skills": {
@@ -125,9 +113,7 @@ bash gui-agent/scripts/setup.sh
 }
 ```
 
-**3️⃣ Talk to your agent.** It reads `SKILL.md` automatically and knows how to operate any app.
-
-> That's it. OpenClaw handles cloning, setup, and execution. You just ask.
+**Done.** Your agent reads `SKILL.md` automatically and can now control any desktop app. Just talk to it.
 
 ## 🧠 How It Works
 
