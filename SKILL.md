@@ -249,9 +249,27 @@ python3 scripts/agent.py read_screen --app WeChat
 
 **agent.py automatically handles:**
 - App not learned yet? → runs `learn` first
+- App learned before? → runs `revise` (check if memory still matches current screen)
+  - Match rate ≥ 80% + all needed components found → use existing memory, skip learn
+  - Match rate < 80% or components missing → incremental learn (update memory)
 - App name in Chinese? → resolves alias (微信→WeChat, 浏览器→Chrome)
 - Activates the app window before operating
 - Calls the right underlying script (app_memory / gui_agent / ui_detector)
+
+### Revise Logic
+
+```
+agent.py gets a task → ensure_app_ready(app, required_components)
+  │
+  ├── No memory at all? → full learn
+  │
+  └── Has memory → revise:
+        ├── Template match all known components against current screen
+        ├── Match rate ≥ 80% AND required components all found?
+        │     → ✅ Memory is current, proceed with task
+        └── Match rate < 80% OR required components missing?
+              → 🔄 Incremental learn (re-detect, update memory)
+```
 
 ### For OpenClaw agents
 

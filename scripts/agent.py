@@ -56,14 +56,111 @@ def app_has_memory(app_name):
     return len(data.get("components", {})) > 5
 
 
-def ensure_app_learned(app_name):
-    """Learn an app if not in memory."""
-    if app_has_memory(app_name):
-        return True
-    print(f"  🧠 First time with {app_name}, learning UI...")
-    out, code = run_script("app_memory.py", ["learn", "--app", app_name], timeout=30)
-    print(out)
-    return code == 0
+def revise_app(app_name, required_components=None):
+    """Smart check: match existing memory against current screen.
+
+    Decision logic:
+    1. Run template match on all known components
+    2. If match rate > 80% AND all required components found → memory is good, skip learn
+    3. If match rate < 80% OR required components missing → incremental learn (update memory)
+
+    Args:
+        app_name: App to check
+        required_components: List of component names needed for current task.
+                           If None, just check overall match rate.
+
+    Returns:
+        (ready, match_info) — ready=True means memory is sufficient
+    """
+    app_dir = MEMORY_DIR / app_name.lower().replace(" ", "_")
+    profile_path = app_dir / "profile.json"
+
+    if not profile_path.exists():
+        print(f"  🧠 No memory for {app_name}, learning from scratch...")
+        out, code = run_script("app_memory.py", ["learn", "--app", app_name], timeout=30)
+        print(out)
+        return code == 0, {"action": "full_learn"}
+
+    # Load existing profile
+    with open(profile_path) as f:
+        profile = json.load(f)
+
+    total_components = len(profile.get("components", {}))
+    if total_components == 0:
+        print(f"  🧠 Empty memory for {app_name}, learning...")
+        out, code = run_script("app_memory.py", ["learn", "--app", app_name], timeout=30)
+        print(out)
+        return code == 0, {"action": "full_learn"}
+
+    # Run detect to see how many known components match
+    activate_app(app_name)
+    out, code = run_script("app_memory.py", ["detect", "--app", app_name], timeout=20)
+
+    # Parse match results
+    matched_count = out.count("✅")
+    unknown_count = 0
+    for line in out.split("\n"):
+        if "unknown" in line.lower():
+            try:
+                unknown_count = int(line.split()[-2])
+            except:
+                pass
+
+    match_rate = matched_count / max(total_components, 1)
+
+    info = {
+        "total": total_components,
+        "matched": matched_count,
+        "unknown": unknown_count,
+        "match_rate": round(match_rate, 2),
+    }
+
+    # Check required components
+    missing_required = []
+    if required_components:
+        for comp in required_components:
+            if comp not in profile["components"]:
+                missing_required.append(comp)
+            else:
+                # Component exists in profile, check if it matched on screen
+                if f"✅ {comp}" not in out:
+                    missing_required.append(comp)
+
+    info["missing_required"] = missing_required
+
+    # Decision
+    if match_rate >= 0.8 and not missing_required:
+        print(f"  ✅ Memory is current ({matched_count}/{total_components} matched, {match_rate:.0%})")
+        info["action"] = "skip"
+        return True, info
+    else:
+        reason = []
+        if match_rate < 0.8:
+            reason.append(f"low match rate ({match_rate:.0%})")
+        if missing_required:
+            reason.append(f"missing: {missing_required}")
+
+        print(f"  🔄 Memory outdated ({', '.join(reason)}), updating...")
+        out, code = run_script("app_memory.py", ["learn", "--app", app_name], timeout=30)
+        print(out)
+        info["action"] = "incremental_learn"
+        return code == 0, info
+
+
+def ensure_app_ready(app_name, required_components=None):
+    """Ensure app is ready for operation.
+
+    Uses revise logic: check memory → match → learn only if needed.
+    """
+    if not app_has_memory(app_name):
+        print(f"  🧠 First time with {app_name}, learning UI...")
+        out, code = run_script("app_memory.py", ["learn", "--app", app_name], timeout=30)
+        print(out)
+        return code == 0
+
+    # Has memory → revise (check if still current)
+    ready, info = revise_app(app_name, required_components)
+    return ready
 
 
 def resolve_app_name(raw_name):
@@ -108,7 +205,7 @@ def get_window_bounds(app_name):
 def action_send_message(app_name, contact, message):
     """Send a message in a chat app."""
     app_name = resolve_app_name(app_name)
-    ensure_app_learned(app_name)
+    ensure_app_ready(app_name)
     activate_app(app_name)
 
     print(f"  📨 Sending to {contact}: {message}")
@@ -124,7 +221,7 @@ def action_send_message(app_name, contact, message):
 def action_read_messages(app_name, contact=None):
     """Read messages in a chat app."""
     app_name = resolve_app_name(app_name)
-    ensure_app_learned(app_name)
+    ensure_app_ready(app_name)
     activate_app(app_name)
 
     params = ["task", "read_messages", "--app", app_name]
@@ -138,7 +235,7 @@ def action_read_messages(app_name, contact=None):
 def action_click_component(app_name, component):
     """Click a named component in an app."""
     app_name = resolve_app_name(app_name)
-    ensure_app_learned(app_name)
+    ensure_app_ready(app_name)
     activate_app(app_name)
 
     print(f"  🖱️ Clicking {component} in {app_name}")
@@ -177,7 +274,7 @@ def action_learn_app(app_name):
 def action_detect(app_name):
     """Detect and match components in an app."""
     app_name = resolve_app_name(app_name)
-    ensure_app_learned(app_name)
+    ensure_app_ready(app_name)
     activate_app(app_name)
 
     out, code = run_script("app_memory.py", ["detect", "--app", app_name], timeout=20)
@@ -251,6 +348,11 @@ ACTIONS = {
         "fn": action_list_components,
         "args": ["app"],
         "desc": "List known components",
+    },
+    "revise": {
+        "fn": lambda app_name: revise_app(app_name),
+        "args": ["app"],
+        "desc": "Check memory freshness, learn only if outdated",
     },
     "read_screen": {
         "fn": action_screenshot_and_read,
