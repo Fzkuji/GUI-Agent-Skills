@@ -1,0 +1,19 @@
+# Template images (contain personal UI screenshots)
+templates/
+
+# App visual memory (machine-specific, contains personal screenshots)
+memory/
+
+# Detection output
+detected/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Temp files
+/tmp/
+_legacy/
