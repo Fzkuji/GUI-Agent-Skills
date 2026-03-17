@@ -201,9 +201,21 @@ def resolve_app_name(raw_name):
 
 def activate_app(app_name):
     """Bring app to front."""
-    subprocess.run(["osascript", "-e", f'tell application "{app_name}" to activate'],
-                   capture_output=True, timeout=10)
-    time.sleep(0.5)
+    # Method 1: set frontmost via System Events (works for all apps including CleanMyMac)
+    try:
+        subprocess.run(["osascript", "-e",
+            f'tell application "System Events" to set frontmost of process "{app_name}" to true'],
+            capture_output=True, timeout=5)
+        time.sleep(0.3)
+        return
+    except:
+        pass
+    # Method 2: open command (fallback)
+    try:
+        subprocess.run(["open", "-a", app_name], capture_output=True, timeout=5)
+        time.sleep(0.5)
+    except:
+        pass
 
 
 def get_window_bounds(app_name):

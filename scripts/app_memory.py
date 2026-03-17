@@ -63,8 +63,10 @@ def get_window_bounds(app_name):
 def capture_window(app_name, out_path=None):
     """Capture a specific app window, return (img_path, win_x, win_y, win_w, win_h)."""
     # Activate app
-    subprocess.run(["osascript", "-e", f'tell application "{app_name}" to activate'],
-                   capture_output=True, timeout=5)
+    # Use set frontmost (works for all apps including CleanMyMac)
+    subprocess.run(["osascript", "-e",
+        f'tell application "System Events" to set frontmost of process "{app_name}" to true'],
+        capture_output=True, timeout=5)
     time.sleep(0.3)
 
     bounds = get_window_bounds(app_name)
