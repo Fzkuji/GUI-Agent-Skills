@@ -63,6 +63,15 @@ Screen (0,0) ──────────────────────�
 - **AX is perfect for Dock/menubar** — don't waste time on CV for those
 - **Electron apps (Discord, Cursor) have huge AX trees** — filter by region, don't scan everything
 
+### Window Capture & Coordinate Conversion
+- **Window crop from fullscreen**: retina fullscreen crop → coordinates are retina pixels (2x)
+- **OCR on cropped window**: returns retina pixel coords within the crop
+- **Convert to screen**: screen_x = win_x + retina_x ÷ 2, screen_y = win_y + retina_y ÷ 2
+- **BUT**: OCR on the non-resized fullscreen returns screen logical coords directly — simpler!
+- **Best approach**: activate window → fullscreen screenshot → OCR → filter results by window bounds
+- **DO NOT** hardcode button positions (y>700) — use window-relative percentages (cy > win_h * 0.7)
+- **EXPLORE before acting**: when unsure of state, crop window screenshot and use vision model to look at it
+
 ### Status Bar / Menu Bar / Floating Windows
 - **Status bar icons**: Use AppleScript `click menu bar item 1 of menu bar 2 of process "AppName"` — NOT screenshot+YOLO
 - **Menu items**: Navigate by name: `click menu item "Switch Profile" of menu 1 of ...`
