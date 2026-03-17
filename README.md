@@ -31,25 +31,65 @@
 - **[03/16/2026]** v0.1.0 — GPA-GUI-Detector integration, Apple Vision OCR, template matching, browser automation, per-site memory.
 - **[03/10/2026]** v0.0.1 — Initial release: WeChat/Discord/Telegram automation, app profiles, fuzzy app matching.
 
-## 💬 Try It
+## 💬 What It Looks Like
 
-Just talk to your OpenClaw agent:
+### Example 1: "帮我在微信里给小明发消息，就说明天见"
 
-> **You**: "帮我在微信里给小明发消息，就说明天见"
->
-> **Agent**: "✅ 已发送给小明：明天见"
+```
+[0s]  👁 OBSERVE — Screenshot → OCR → Current app: Finder (not WeChat)
+[1s]  🔍 MEMORY — WeChat learned? Yes (24 components in memory)
+[1s]  📱 ACTIVATE — Bring WeChat to front
+[2s]  👁 OBSERVE — WeChat main page, 小明 not in visible chat list
+[3s]  🔍 SEARCH — Template match search_bar_icon (conf=0.96) → click
+[4s]  📋 PASTE — "小明" → clipboard → Cmd+V into search field
+[5s]  👁 OBSERVE — Search results appeared, "小明" found at (685, 252)
+[5s]  ✅ VERIFY — Click 小明 → OCR chat header → confirmed "小明"
+[6s]  📋 PASTE — "明天见" → clipboard → Cmd+V into input field
+[7s]  ⌨️ SEND — Press Enter
+[8s]  👁 CONFIRM — OCR chat area → "明天见" visible → sent ✅
+```
 
-> **You**: "帮我看看周五北京到济南的高铁票"
->
-> **Agent**: "G29 18:00→19:31 ¥211 / G31 18:04→19:36 ¥211"
+### Example 2: "Scan my Mac for malware"
 
-> **You**: "Scan my Mac for malware"
->
-> **Agent**: "✅ Deep scan complete: No threats found"
+```
+[0s]  👁 OBSERVE — Screenshot → CleanMyMac X not in foreground
+[1s]  📱 ACTIVATE — Open CleanMyMac X → get main window (1090×644)
+[3s]  👁 OBSERVE — Currently on Smart Scan results page ("Well done!")
+[3s]  🔍 MEMORY — "malware_removal" workflow? Known page ✅
+[4s]  🖱️ CLICK — "Malware Removal" in sidebar (279, 415) → navigate
+[5s]  👁 VERIFY — Page switched, "Scan" button visible at bottom
+[6s]  🖱️ CLICK — Scan button (855, 801) → deep scan starts
+[8s]  ⏳ POLL — Every 2s: screenshot → OCR check "No threats"
+[30s] 👁 CONFIRM — "No threats found" appeared → done ✅
+```
 
-> **You**: "Check if my GPU training is still running"
->
-> **Agent**: "All 8 GPUs at 92% utilization — experiment is running."
+### Example 3: "Check if my GPU training is still running"
+
+```
+[0s]  👁 OBSERVE — Screenshot → Chrome is open
+[1s]  🔍 NAVIGATE — Find JupyterLab tab (bookmark "Tencent-H20-1") → click
+[3s]  👁 OBSERVE — JupyterLab loaded, multiple terminal tabs visible
+[4s]  🔍 SEARCH — OCR find "nvitop" or GPU monitoring tab → click
+[5s]  👁 READ — Screenshot terminal content:
+      GPU 0: 9% | GPU 1-7: 100% | Memory: 76GB/96GB each
+[6s]  📊 REPORT — "All 8 GPUs active, 7 at 100% utilization" ✅
+```
+
+### Example 4: "通过活动监视器关掉 GlobalProtect"
+
+```
+[0s]  👁 OBSERVE — Screenshot current state
+[1s]  📱 OPEN — Launch GlobalProtect + Activity Monitor
+[4s]  👁 EXPLORE — Activity Monitor on Network tab, search field empty
+[5s]  🖱️ CLICK — Search field (top-right corner)
+[5s]  📋 PASTE — "GlobalProtect" → clipboard → Cmd+V (never type directly)
+[7s]  👁 OBSERVE — Process list shows GlobalProtect (PID 43079)
+[7s]  🖱️ CLICK — Select GlobalProtect process
+[8s]  🖱️ CLICK — Stop button (X) in toolbar
+[9s]  👁 OBSERVE — "Quit process?" confirmation dialog appeared
+[9s]  🖱️ CLICK — "Force Quit" button
+[10s] 👁 CONFIRM — Process list empty → GlobalProtect terminated ✅
+```
 
 ## 🚀 Quick Start
 
