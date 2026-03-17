@@ -6,7 +6,7 @@
   <p>
     <strong>Vision-based desktop automation skills for LLM agents on macOS.</strong>
     <br />
-    See, learn, and control any app — WeChat, Chrome, Discord, and more.
+    See, learn, and control any desktop application autonomously.
   </p>
 
   <p>
