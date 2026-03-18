@@ -187,7 +187,8 @@ User: "Clean my Mac"
          │
          ▼
 ┌─────────────────────────────────┐
-│ 0. OBSERVE                      │ Screenshot → OCR → What app? Identify state
+│ 0. OBSERVE                      │ Screenshot → YOLO + OCR → What app? Identify state
+│    • YOLO detect icons/buttons  │
 │    • OCR visible text           │
 │    • Match against known states │
 └────────┬────────────────────────┘
@@ -375,7 +376,7 @@ Every action follows a mandatory protocol — **written into the code, not just 
 | Step | What | Why |
 |------|------|-----|
 | **INTENT** | Match request to saved workflows | Reuse proven paths |
-| **OBSERVE** | Screenshot + OCR + record token count | Know state, track cost |
+| **OBSERVE** | Screenshot + YOLO + OCR + record token count | Know state, track cost |
 | **VERIFY** | Element exists? Correct window? Exact text match? | Prevent clicking wrong thing |
 | **ACT** | Click / type / send | Execute |
 | **CONFIRM** | Screenshot again, check state changed | Verify it worked |
