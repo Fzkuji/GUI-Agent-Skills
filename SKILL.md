@@ -544,8 +544,8 @@ save_meta_workflow("share_article_to_wechat", [
 **Nesting**: meta-workflows can call other meta-workflows (max depth 5)
 
 **When to create what**:
-- Single app task → app workflow (`save_workflow`)
-- Multi-app task → first ensure each app has its own workflow, then create meta-workflow to compose them
+- Single task in one app → app workflow (`save_workflow`)
+- Composing multiple workflows (same app or cross-app) → meta-workflow (`save_meta_workflow`)
 
 **Listing**: `python3 agent.py all_workflows` — shows all app + meta workflows
 
