@@ -183,48 +183,16 @@ Then just chat with your agent — it reads `SKILL.md` and handles everything au
 ## 🧠 How It Works
 
 ```mermaid
-flowchart TD
-    User["🗣️ User: Clean my Mac"] --> Intent
-
-    subgraph Intent["**-1. INTENT MATCH**"]
-        I1["List saved workflows for app"]
-        I2["LLM semantic match by description"]
-        I3{"Match found?"}
-        I1 --> I2 --> I3
-    end
-
-    I3 -- "Yes → Load steps" --> Observe
-    I3 -- "No → Explore" --> Observe
-
-    subgraph Observe["**0. OBSERVE**"]
-        O1["📸 Screenshot"]
-        O2["🔍 YOLO detect icons/buttons"]
-        O3["📝 OCR visible text"]
-        O4["🧠 Match against known states"]
-        O1 --> O2 --> O3 --> O4
-    end
-
-    Observe --> StateCheck{"In memory?"}
-
-    StateCheck -- "Yes" --> Template["🎯 Template Match\n~0.3s"]
-    StateCheck -- "No" --> Detect["🔍 DETECT\nYOLO + OCR → Save to memory"]
-    Detect --> Template
-
-    Template --> Verify["**1. VERIFY**\nCorrect element? Correct window?"]
-    Verify --> Act["**2. ACT**\nClick / Type / Send\n→ Creates new state if screen changes"]
-    Act --> Confirm["**3. CONFIRM**\nDid it work? Right state now?"]
-    Confirm --> Report["**4. REPORT**\n⏱ Time | 📊 Token delta | 🔧 Actions"]
-
-    Confirm -- "Failed" --> Observe
-
-    style Intent fill:#1a1a2e,stroke:#e94560,color:#fff
-    style Observe fill:#1a1a2e,stroke:#0f3460,color:#fff
-    style Template fill:#16213e,stroke:#53d769,color:#fff
-    style Detect fill:#16213e,stroke:#ffbd69,color:#fff
-    style Verify fill:#1a1a2e,stroke:#53d769,color:#fff
-    style Act fill:#1a1a2e,stroke:#e94560,color:#fff
-    style Confirm fill:#1a1a2e,stroke:#0f3460,color:#fff
-    style Report fill:#1a1a2e,stroke:#53d769,color:#fff
+flowchart LR
+    User["🗣️ User Request"] --> Intent["🎯 Intent\nMatch workflow"]
+    Intent --> Observe["👁️ Observe\nYOLO + OCR"]
+    Observe --> Match{"In\nmemory?"}
+    Match -- Yes --> Template["⚡ Template\nMatch 0.3s"]
+    Match -- No --> Detect["🔍 Detect\n& Learn"] --> Template
+    Template --> Act["🖱️ Act\nClick/Type"]
+    Act --> Confirm{"✅ State\nchanged?"}
+    Confirm -- Yes --> Report["📊 Report"]
+    Confirm -- No --> Observe
 ```
 
 ### Learn Once, Match Forever

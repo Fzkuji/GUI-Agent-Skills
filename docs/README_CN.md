@@ -163,48 +163,16 @@ bash scripts/setup.sh
 ## 🧠 工作原理
 
 ```mermaid
-flowchart TD
-    User["🗣️ 用户：帮我清理电脑"] --> Intent
-
-    subgraph Intent["**-1. 意图匹配**"]
-        I1["列出目标应用的已有工作流"]
-        I2["LLM 语义匹配（按描述）"]
-        I3{"匹配成功？"}
-        I1 --> I2 --> I3
-    end
-
-    I3 -- "是 → 加载步骤" --> Observe
-    I3 -- "否 → 探索" --> Observe
-
-    subgraph Observe["**0. 观察**"]
-        O1["📸 截屏"]
-        O2["🔍 YOLO 检测图标/按钮"]
-        O3["📝 OCR 识别可见文字"]
-        O4["🧠 与已知状态匹配"]
-        O1 --> O2 --> O3 --> O4
-    end
-
-    Observe --> StateCheck{"在记忆中？"}
-
-    StateCheck -- "是" --> Template["🎯 模板匹配\n~0.3 秒"]
-    StateCheck -- "否" --> Detect["🔍 检测\nYOLO + OCR → 保存到记忆"]
-    Detect --> Template
-
-    Template --> Verify["**1. 验证**\n正确的元素？正确的窗口？"]
-    Verify --> Act["**2. 执行**\n点击 / 输入 / 发送\n→ 屏幕变化则创建新状态"]
-    Act --> Confirm["**3. 确认**\n成功了吗？状态正确吗？"]
-    Confirm --> Report["**4. 报告**\n⏱ 耗时 | 📊 Token 增量 | 🔧 操作统计"]
-
-    Confirm -- "失败" --> Observe
-
-    style Intent fill:#1a1a2e,stroke:#e94560,color:#fff
-    style Observe fill:#1a1a2e,stroke:#0f3460,color:#fff
-    style Template fill:#16213e,stroke:#53d769,color:#fff
-    style Detect fill:#16213e,stroke:#ffbd69,color:#fff
-    style Verify fill:#1a1a2e,stroke:#53d769,color:#fff
-    style Act fill:#1a1a2e,stroke:#e94560,color:#fff
-    style Confirm fill:#1a1a2e,stroke:#0f3460,color:#fff
-    style Report fill:#1a1a2e,stroke:#53d769,color:#fff
+flowchart LR
+    User["🗣️ 用户请求"] --> Intent["🎯 意图匹配\n查找工作流"]
+    Intent --> Observe["👁️ 观察\nYOLO + OCR"]
+    Observe --> Match{"在记忆\n中？"}
+    Match -- 是 --> Template["⚡ 模板匹配\n0.3 秒"]
+    Match -- 否 --> Detect["🔍 检测\n并学习"] --> Template
+    Template --> Act["🖱️ 执行\n点击/输入"]
+    Act --> Confirm{"✅ 状态\n变化？"}
+    Confirm -- 是 --> Report["📊 报告"]
+    Confirm -- 否 --> Observe
 ```
 
 ### 一次学习，永久匹配
