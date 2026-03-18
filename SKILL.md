@@ -268,14 +268,14 @@ python3 scripts/agent.py read_screen --app WeChat
 ```
 
 **agent.py automatically handles:**
-- App not learned yet? → runs `learn` first
-- App learned before? → runs `eval` (check if memory still matches current screen)
-  - Match rate ≥ 80% + all needed components found → use existing memory, skip learn
-  - Match rate < 80% or components missing → incremental learn (update memory)
+- **New app** → `learn` → `plan` (detect components + analyze + create workflow)
+- **App learned before** → `eval` (check if memory still matches)
+  - Match rate ≥ 80% → use existing memory
+  - Match rate < 80% → re-learn
+- **Error during execution** → `re-plan` (re-learn + analyze + new plan)
 - App name in Chinese? → resolves alias (微信→WeChat, 浏览器→Chrome)
 - Activates the app window before operating
 - Calls the right underlying script (app_memory / gui_agent / ui_detector)
-- **Workflow conflict detected?** → runs `replan_workflow` (learn fresh + analyze + replan)
 
 ### Eval Logic (Workflow-Based)
 
