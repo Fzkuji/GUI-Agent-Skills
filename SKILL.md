@@ -82,7 +82,7 @@ Step 1: Is the element in template memory?
 
 Step 2: Run full detection (YOLO + OCR)
   → ui_detector.py --app AppName
-  → GPA-GUI-Detector finds icons/buttons
+  → GPA-GUI-Detector finds components/buttons
   → Apple Vision OCR finds text
   → Merge, save to memory for next time
 
@@ -104,28 +104,21 @@ Each app gets a memory directory with learned components:
 ```
 memory/apps/<appname>/
 ├── profile.json          # Component registry (app info, window bounds)
-├── summary.json         # App overview (pages, workflows)
-├── icons/              # Cropped component images (PNG)
+├── summary.json         # App overview (workflows)
+├── components/         # Cropped component images (PNG)
 │   ├── folder_icon.png
 │   ├── button_search.png
-│   ├── icon_0.png      # Unlabeled → LLM identifies later
+│   ├── icon_0.png     # Unlabeled → LLM identifies later
 │   └── ...
-├── pages/              # Per-page detection results
-│   ├── <page_name>.json      # Detection results (elements array)
-│   ├── <page_name>.png       # Raw window screenshot
-│   └── <page_name>_annotated.jpg  # Annotated image
 └── workflows/          # Saved workflow sequences
     └── <workflow_name>.json
 ```
 
 ### What Gets Saved
 
-1. **icons/** - Each YOLO-detected component cropped and saved
-2. **pages/*.png** - Raw window screenshot
-3. **pages/*.json** - Detection results (type, bbox, label for each element)
-4. **pages/*_annotated.jpg** - Visualization with bounding boxes
-5. **profile.json** - App metadata
-6. **summary.json** - App overview with pages and workflows
+1. **components/** - Each YOLO-detected component cropped and saved
+2. **profile.json** - App metadata
+3. **summary.json** - App overview with workflows
 
 ### Key Design Decisions
 
@@ -161,7 +154,7 @@ memory/apps/<appname>/
    a. Has OCR label? → use label as filename
    b. No label? → name as "unlabeled_<region>_<x>_<y>"
    c. Check visual dedup (similarity > 0.92) → skip if duplicate
-   d. Crop and save to icons/
+   d. Crop and save to components/
 4. After saving all elements:
    a. Use vision model (Claude/GPT-4o) to identify ALL unlabeled icons
    b. Rename identified icons: app_memory.py rename --old unlabeled_xxx --new actual_name
@@ -432,11 +425,11 @@ Browsers are a **two-layer** system:
 memory/apps/
 ├── google_chrome/
 │   ├── profile.json          # Browser chrome UI (tabs, address bar, etc.)
-│   ├── icons/                # Browser UI icons
+│   ├── components/                # Browser UI icons
 │   └── sites/                # Per-website memory
 │       ├── 12306.cn/
 │       │   ├── profile.json  # Site-specific UI elements
-│       │   ├── icons/        # Site buttons, nav items
+│       │   ├── components/        # Site buttons, nav items
 │       │   └── pages/
 │       │       ├── search.json     # Train search page layout
 │       │       └── results.json    # Results page layout
@@ -550,10 +543,10 @@ Only the chat HEADER reliably shows who you're actually chatting with.
 2. Run: python3 app_memory.py learn --app AppName
 3. System automatically:
    a. Captures window screenshot
-   b. Runs GPA-GUI-Detector (YOLO) → finds all icons/buttons
+   b. Runs GPA-GUI-Detector (YOLO) → finds all components/buttons
    c. Runs Apple Vision OCR → finds all text
    d. Merges with IoU dedup
-   e. Crops each element → saves to memory/apps/appname/icons/
+   e. Crops each element → saves to memory/apps/appname/components/
    f. Auto-cleans dynamic content (timestamps, message previews)
    g. Reports unlabeled icons
 4. Agent identifies unlabeled icons (vision model looks at grid)
@@ -674,7 +667,7 @@ gui-agent/
 │   └── ...
 ├── memory/               # Visual memory (gitignored)
 │   └── apps/
-│       ├── wechat/       # profile.json + icons/ + pages/
+│       ├── wechat/       # profile.json + components/ + pages/
 │       └── ...
 ├── scripts/              # Core scripts
 │   ├── ui_detector.py    # Detection engine
