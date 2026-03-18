@@ -4,7 +4,7 @@ App Visual Memory — per-app component memory with template matching.
 
 Each app gets:
 - profile.json: window structure, known pages, component registry
-- icons/: cropped component images (named by content/function)
+- components/: cropped component images (named by content/function)
 - pages/: page-specific layouts with relative coordinates
 
 All coordinates are RELATIVE to the window top-left corner.
@@ -104,7 +104,7 @@ def get_app_dir(app_name):
     """Get/create memory directory for an app."""
     app_dir = MEMORY_DIR / app_name.lower().replace(" ", "_")
     app_dir.mkdir(parents=True, exist_ok=True)
-    (app_dir / "icons").mkdir(exist_ok=True)
+    (app_dir / "components").mkdir(exist_ok=True)
     (app_dir / "pages").mkdir(exist_ok=True)
     return app_dir
 
@@ -116,7 +116,7 @@ def get_site_dir(app_name, domain):
     safe_domain = domain.replace(".", "_").replace(":", "").replace("/", "")[:50]
     site_dir = app_dir / "sites" / safe_domain
     site_dir.mkdir(parents=True, exist_ok=True)
-    (site_dir / "icons").mkdir(exist_ok=True)
+    (site_dir / "components").mkdir(exist_ok=True)
     (site_dir / "pages").mkdir(exist_ok=True)
     return site_dir
 
@@ -159,6 +159,61 @@ def load_profile(app_name):
     }
 
 
+def should_save_component(el, win_w, win_h):
+    """Decide whether to save a detected component.
+
+    Rules for what to save (stable UI):
+    - Sidebar elements (left region)
+    - Toolbar elements (top region)
+    - Header/Footer elements
+    - Elements with OCR text labels
+
+    Rules for what to SKIP (dynamic content):
+    - Content area folder/file icons (they change every session)
+    - Tiny icons (< 30x30)
+    - Elements in the main content area without labels
+
+    Returns: (should_save, reason)
+    """
+    # Skip tiny elements
+    w, h = el.get("w", 0), el.get("h", 0)
+    if w < 25 or h < 25:
+        return False, "too_small"
+
+    # Get position
+    cx, cy = el.get("cx", 0), el.get("cy", 0)
+    rel_x = cx // 2  # Convert to logical pixels
+    rel_y = cy // 2
+
+    # Define regions (relative to window size)
+    is_sidebar = rel_x < win_w * 0.15  # Left 15%
+    is_toolbar = rel_y < win_h * 0.12   # Top 12%
+    is_footer = rel_y > win_h * 0.88     # Bottom 12%
+    is_content_area = not (is_sidebar or is_toolbar or is_footer)
+
+    # Has OCR label → likely stable UI element
+    has_label = el.get("label") and len(el.get("label", "").strip()) > 0
+
+    # If has label and in stable region → save
+    if has_label and (is_sidebar or is_toolbar or is_footer):
+        return True, "labeled_stable_region"
+
+    # If in sidebar or toolbar → likely stable UI
+    if is_sidebar or is_toolbar:
+        return True, "stable_region"
+
+    # If has label → might be useful, save it
+    if has_label:
+        return True, "has_label"
+
+    # Content area without label → likely dynamic content (folder icons, etc.)
+    if is_content_area and not has_label:
+        return False, "dynamic_content_area"
+
+    # Default: save it
+    return True, "default"
+
+
 def save_profile(app_name, profile):
     """Save app profile."""
     app_dir = get_app_dir(app_name)
@@ -195,7 +250,7 @@ def save_component_icon(app_name, component_name, img, bbox, retina_scale=2):
     # Sanitize filename — name should describe content
     safe_name = component_name.replace("/", "-").replace(" ", "_").replace(":", "")
     safe_name = safe_name.replace("\\", "-").replace("?", "").replace("*", "")[:50]
-    icon_path = app_dir / "icons" / f"{safe_name}.png"
+    icon_path = app_dir / "components" / f"{safe_name}.png"
     cv2.imwrite(str(icon_path), crop)
     return str(icon_path.relative_to(app_dir))
 
@@ -345,13 +400,22 @@ def learn_app(app_name, page_name="main"):
     # 4. Read image for cropping
     img = cv2.imread(img_path)
 
-    # 5. Save each element (with dedup and smart naming)
+    # 5. Save each element (with filtering + dedup + smart naming)
     page_components = []
     new_count = 0
     dup_count = 0
-    icons_dir = get_app_dir(app_name) / "icons"
+    skip_count = 0
+    skip_reasons = {}
+    icons_dir = get_app_dir(app_name) / "components"
 
     for el in all_elements:
+        # --- FILTER: Decide whether to save this component ---
+        should_save, reason = should_save_component(el, win_w, win_h)
+        if not should_save:
+            skip_count += 1
+            skip_reasons[reason] = skip_reasons.get(reason, 0) + 1
+            continue
+
         # --- Smart naming ---
         # Rule: filename = content description, NOT coordinates
         if el.get("label"):
@@ -447,7 +511,9 @@ def learn_app(app_name, page_name="main"):
     # 8. Save profile
     save_profile(app_name, profile)
 
-    print(f"  💾 Saved {len(page_components)} components ({new_count} new, {dup_count} duplicates skipped)")
+    print(f"  💾 Saved {len(page_components)} components ({new_count} new, {dup_count} dups, {skip_count} skipped)")
+    if skip_reasons:
+        print(f"     Skip reasons: {skip_reasons}")
 
     # 9. Auto-cleanup: remove dynamic content
     #    (timestamps, message previews, chat text, stickers)
@@ -513,7 +579,7 @@ def learn_site(app_name="Google Chrome", page_name="main"):
     page_components = []
     new_count = 0
     dup_count = 0
-    icons_dir = site_dir / "icons"
+    icons_dir = site_dir / "components"
 
     for el in all_elements:
         if el.get("label"):
@@ -912,7 +978,7 @@ def main():
             # Rename icon file
             old_icon = app_dir / comp["icon_file"]
             safe_new = args.new.replace("/", "-").replace(" ", "_").replace(":", "")[:50]
-            new_icon = app_dir / "icons" / f"{safe_new}.png"
+            new_icon = app_dir / "components" / f"{safe_new}.png"
             if old_icon.exists():
                 old_icon.rename(new_icon)
                 comp["icon_file"] = f"icons/{safe_new}.png"
@@ -932,7 +998,7 @@ def main():
     elif args.command == "cleanup":
         profile = load_profile(args.app)
         app_dir = get_app_dir(args.app)
-        icons_dir = app_dir / "icons"
+        icons_dir = app_dir / "components"
 
         # Find duplicates
         items = list(profile["components"].items())
