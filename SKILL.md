@@ -18,7 +18,7 @@ User Intent ("click Connect button in GlobalProtect")
 │     Try in order:                   │
 │     ① Template Match (0.3s)         │  → known components from memory
 │     ② OCR text search (1.6s)        │  → find by visible text
-│     ③ YOLO detection (0.3s)         │  → icons in AX-poor apps only
+│     ③ YOLO detection (0.3s)         │  → icons, buttons, UI elements
 └─────────────────────────────────────┘
     │
     ▼
@@ -76,53 +76,26 @@ Never use fullscreen screenshots for detection — too slow, causes cross-app co
 **ALWAYS try methods in this order:**
 
 ```
-  → osascript: tell process "AppName" to get UI elements
-  → If found (has name + position) → USE IT. Done.
-    System Settings, GlobalProtect, most native apps
-
-Step 2: Is the element in template memory?
+Step 1: Is the element in template memory?
   → app_memory.py find --app AppName --component name
   → If matched (conf > 0.8) → click it. Done.
 
-Step 2: Can OCR find it by text?
-  → ocr_find("button text") within window bounds
-  → If found → click. Optionally auto-learn template.
-
-Step 3: Run full detection (YOLO + OCR)
+Step 2: Run full detection (YOLO + OCR)
   → ui_detector.py --app AppName
   → GPA-GUI-Detector finds icons/buttons
   → Apple Vision OCR finds text
   → Merge, save to memory for next time
 
-Step 4: Last resort — screenshot + ask LLM
+Step 3: Last resort — screenshot + ask LLM
   → Take screenshot, send to vision model for analysis
   → Only if all above methods fail
 ```
 
-GlobalProtect VPN reconnect uses only AX + cliclick — no YOLO needed.
+### Detection Stack
 
-
-```bash
-# List all UI elements of an app
-osascript -l JavaScript -e '
-  var se = Application("System Events");
-  var p = se.processes["AppName"];
-  var all = p.windows[0].entireContents();
-  // Filter by role, title, position
-'
-
-# Click a named button
-
-# Get element position
-```
-
-### When YOLO detection IS needed
-
-Only use GPA-GUI-Detector for apps with **bad AX support**:
-- **WeChat** (4 AX elements — only window buttons)
-- **QQ**, other custom-rendered apps
-- **Websites** inside browsers (browser chrome has AX, but page content doesn't)
-- Any app where `entireContents()` returns < 10 elements
+GPA-GUI-Detector + Apple Vision OCR are used for all apps by default:
+- **YOLO**: finds icons, buttons, and other visual UI elements
+- **OCR**: finds text labels, menu items, chat content
 
 ## App Visual Memory
 
@@ -228,7 +201,7 @@ After every `learn`, verify:
 
 | Scene | Location | Goal |
 |-------|----------|------|
-| **Atomic Actions** | `actions/_actions.yaml` | click, type, paste, AX scan... |
+| **Atomic Actions** | `actions/_actions.yaml` | click, type, paste, detect... |
 | **WeChat** | `scenes/wechat/` | Send/read messages, scroll history |
 | **Discord** | `scenes/discord.yaml` | Send/read messages |
 | **Telegram** | `scenes/telegram.yaml` | Send/read messages |
@@ -327,6 +300,8 @@ They are NOT executable scripts — the actual logic is in `agent.py` + `gui_age
 
 6. **LLM never provides coordinates** — The LLM (you) decides WHAT component to click by name. Coordinates ALWAYS come from detection tools (OCR, YOLO, template match). Never hardcode or estimate coordinates.
 
+7. **NEVER send screenshots to the conversation** — Screenshot only for internal detection/verification. Never include them in replies to the user.
+
 ## Operation Protocol (MANDATORY for every action)
 
 These are hard requirements. Not suggestions. Every step in order.
@@ -399,7 +374,7 @@ When you are not sure what state the app is in:
 1. **Memory first, detect second** — check template match before running YOLO+OCR
 2. **Relative coordinates** — never hardcode screen positions; all coords relative to window top-left
 3. **Verify before acting** — especially before sending messages (verify contact, verify input field)
-4. **AX > Template > OCR > YOLO** — use the cheapest method that works
+4. **Template > OCR > YOLO > LLM** — use the cheapest method that works
 5. **Paste > Type** for CJK text and special chars (set LANG=en_US.UTF-8)
 6. **Learn incrementally** — save new components to memory after each interaction
 7. **Window-based, not screen-based** — capture and operate within the target window only
@@ -428,16 +403,14 @@ When you are not sure what state the app is in:
 - **Key press**: `cliclick kp:return` (valid keys: return, esc, tab, delete, space, arrow-*, f1-f16)
 - **Shortcut**: `osascript -e 'tell app "System Events" to keystroke "v" using command down'`
 
-### Accessibility (AX) API
-- Some apps have full AX support: Discord (1913 elements), Chrome (1415), System Settings
-- Some have zero: WeChat (4 elements), QQ, custom-rendered apps
-- Dock and menubar ALWAYS have AX — use it for those
-- AX gives: element name, position, size, role — most accurate source
+### Window Utilities
+- Get window bounds: `osascript -e 'tell application "System Events" to tell process "AppName" to return {position, size} of window 1'`
+- Get window ID: use Swift CGWindowListCopyWindowInfo (see ui_detector.py)
+- Capture window: `screencapture -x -l <windowID> output.png`
+- Activate app: `osascript -e 'tell application "AppName" to activate'`
+- Resize: `tell process "AppName" to set size of window 1 to {900, 650}`
 
-### App-Specific Quirks
-- **WeChat**: 4 AX elements only; left sidebar icons are gray-on-gray (YOLO needed); Cmd+F opens web search NOT contact search; input field placeholder invisible to OCR
-- **Discord**: Full AX; Cmd+K for quick switcher; sidebar icons are round server avatars
-- **Electron apps** (Discord, Cursor, Outlook): huge AX tree, may timeout on full scan; filter by region
+### Input Methods
 
 ### Browser Automation
 
@@ -654,7 +627,7 @@ python3 app_memory.py detect --app WeChat
 | Script | Purpose |
 |--------|---------|
 | `setup.sh` | **Run first on new machine** — installs all dependencies |
-| `ui_detector.py` | Unified detection engine (YOLO + OCR + AX) |
+| `ui_detector.py` | Unified detection engine (YOLO + OCR) |
 | `app_memory.py` | Per-app visual memory (learn / detect / click / verify) |
 | `gui_agent.py` | Legacy task executor (send_message, read_messages, etc.) |
 | `template_match.py` | Low-level template matching utilities |
