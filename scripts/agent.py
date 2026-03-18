@@ -414,10 +414,11 @@ def observe_state(app_name, include_yolo=False):
 # Workflow Recording — save steps for reuse
 # ═══════════════════════════════════════════
 
-def save_workflow(app_name, workflow_name, steps, notes=None):
+def save_workflow(app_name, workflow_name, steps, description=None, notes=None):
     """Save a workflow's steps to app memory for future reference.
 
     Each workflow records:
+    - description: one-line summary for intent matching (REQUIRED)
     - steps: list of {action, target, result, timestamp}
     - notes: lessons learned (OCR quirks, timing, etc.)
     """
@@ -430,6 +431,7 @@ def save_workflow(app_name, workflow_name, steps, notes=None):
     workflow = {
         "app": app_name,
         "workflow": workflow_name,
+        "description": description or workflow_name.replace("_", " "),
         "steps": steps,
         "notes": notes or [],
         "last_run": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -441,6 +443,41 @@ def save_workflow(app_name, workflow_name, steps, notes=None):
 
     # Update app summary
     update_app_summary(app_name)
+
+
+def _show_workflows(app_name, workflow_name=""):
+    """List workflows (name + description) or show a specific workflow's full steps."""
+    if workflow_name:
+        wf = load_workflow(app_name, workflow_name)
+        if wf:
+            print(json.dumps(wf, indent=2, ensure_ascii=False))
+        else:
+            print(f"Workflow '{workflow_name}' not found for {app_name}")
+        return
+    
+    app_dir = MEMORY_DIR / app_name.lower().replace(" ", "_") / "workflows"
+    if not app_dir.exists():
+        print(f"No workflows for {app_name}")
+        return
+    
+    workflows = []
+    for f in sorted(app_dir.glob("*.json")):
+        with open(f) as fh:
+            wf = json.load(fh)
+        workflows.append({
+            "name": wf.get("workflow", f.stem),
+            "description": wf.get("description", ""),
+            "steps": len(wf.get("steps", [])),
+            "last_run": wf.get("last_run", ""),
+        })
+    
+    if not workflows:
+        print(f"No workflows for {app_name}")
+        return
+    
+    print(f"Workflows for {app_name}:")
+    for wf in workflows:
+        print(f"  {wf['name']} — {wf['description']} ({wf['steps']} steps, last: {wf['last_run']})")
 
 
 def load_workflow(app_name, workflow_name):
@@ -1018,11 +1055,7 @@ ACTIONS = {
         "desc": "List known components",
     },
     "workflows": {
-        "fn": lambda app_name, **kw: print(json.dumps(
-            load_workflow(app_name, kw.get("workflow", "")) or
-            {"workflows": list((MEMORY_DIR / app_name.lower().replace(" ", "_") / "workflows").glob("*.json"))
-             if (MEMORY_DIR / app_name.lower().replace(" ", "_") / "workflows").exists() else []},
-            indent=2, ensure_ascii=False, default=str)),
+        "fn": lambda app_name, **kw: _show_workflows(app_name, kw.get("workflow", "")),
         "args": ["app"],
         "optional": ["workflow"],
         "desc": "List or view saved workflows for an app",
