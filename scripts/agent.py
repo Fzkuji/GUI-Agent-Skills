@@ -120,27 +120,33 @@ def eval_app(app_name, workflow=None, required_components=None):
     app_dir = MEMORY_DIR / app_name.lower().replace(" ", "_")
     profile_path = app_dir / "profile.json"
 
-    # Case 1: App never learned
+    # Case 1: App never learned → learn → plan
     if not profile_path.exists():
         page = workflow or "main"
         print(f"  🧠 No memory for {app_name}, learning (page: {page})...")
         out, code = run_script("app_memory.py", ["learn", "--app", app_name, "--page", page], timeout=30)
         print(out)
-        return code == 0, {"action": "full_learn", "page": page}
+        
+        # After learn: plan
+        plan, analysis = plan_workflow(app_name, {"workflow": workflow})
+        return code == 0, {"action": "learn_and_plan", "page": page, "analysis": analysis}
 
     with open(profile_path) as f:
         profile = json.load(f)
 
     known_pages = list(profile.get("pages", {}).keys())
 
-    # Case 2: Workflow/page is new (never learned this page)
+    # Case 2: Workflow/page is new (never learned this page) → learn → plan
     if workflow and workflow not in known_pages:
         print(f"  🆕 New workflow '{workflow}' for {app_name} (known pages: {known_pages})")
         print(f"  🧠 Learning new page...")
         activate_app(app_name)
         out, code = run_script("app_memory.py", ["learn", "--app", app_name, "--page", workflow], timeout=30)
         print(out)
-        return code == 0, {"action": "learn_new_page", "page": workflow, "known_pages": known_pages}
+        
+        # After learn: plan
+        plan, analysis = plan_workflow(app_name, {"workflow": workflow})
+        return code == 0, {"action": "learn_and_plan", "page": workflow, "analysis": analysis}
 
     # Case 3: Workflow known → verify via template match
     total_components = len(profile.get("components", {}))
@@ -149,7 +155,10 @@ def eval_app(app_name, workflow=None, required_components=None):
         print(f"  🧠 Empty memory for {app_name}, learning...")
         out, code = run_script("app_memory.py", ["learn", "--app", app_name, "--page", page], timeout=30)
         print(out)
-        return code == 0, {"action": "full_learn", "page": page}
+        
+        # After learn: plan
+        plan, analysis = plan_workflow(app_name, {"workflow": page})
+        return code == 0, {"action": "learn_and_plan", "page": page, "analysis": analysis}
 
     activate_app(app_name)
     out, code = run_script("app_memory.py", ["detect", "--app", app_name], timeout=20)
