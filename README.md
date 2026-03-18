@@ -12,7 +12,7 @@
   <p>
     <a href="#-quick-start"><img src="https://img.shields.io/badge/Quick_Start-blue?style=for-the-badge" /></a>
     <a href="#-quick-start"><img src="https://img.shields.io/badge/🦞_OpenClaw-red?style=for-the-badge" /></a>
-    <a href="https://discord.com/invite/clawd"><img src="https://img.shields.io/badge/Discord-7289da?style=for-the-badge&logo=discord&logoColor=white" /></a>
+    <a href="https://discord.gg/BQbUmVuD"><img src="https://img.shields.io/badge/Discord-7289da?style=for-the-badge&logo=discord&logoColor=white" /></a>
   </p>
 
   <p>
@@ -421,7 +421,7 @@ GUIClaw/
 |---|---|
 | 🦞 **[OpenClaw](https://github.com/openclaw/openclaw)** | AI assistant framework — loads GUIClaw as a skill |
 | 🔍 **[GPA-GUI-Detector](https://huggingface.co/Salesforce/GPA-GUI-Detector)** | Salesforce YOLO model for UI detection |
-| 💬 **[Discord Community](https://discord.com/invite/clawd)** | Get help, share feedback |
+| 💬 **[Discord Community](https://discord.gg/BQbUmVuD)** | Get help, share feedback |
 
 ## 📄 License
 
