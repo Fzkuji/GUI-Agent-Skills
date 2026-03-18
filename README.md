@@ -25,6 +25,13 @@
 
 ---
 
+<p align="center">
+  <b>🇺🇸 English</b> ·
+  <a href="docs/README_CN.md">🇨🇳 中文</a>
+</p>
+
+---
+
 ## 🔥 News
 
 - **[03/19/2026]** v0.4.0 — **Workflow memory + async polling**: Saved workflows auto-matched by LLM intent; `wait_for` command (template-match polling, no blind clicks); mandatory timing & token delta reporting; multi-window fix (selects largest window).
