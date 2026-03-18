@@ -1081,8 +1081,21 @@ def action_open_app(app_name):
 
 
 def action_navigate_browser(url):
-    """Navigate browser to URL."""
-    subprocess.run(["open", "-a", "Google Chrome", url], capture_output=True, timeout=10)
+    """Navigate browser to URL — opens in current window's active tab or new tab."""
+    # Use AppleScript to navigate in the existing Chrome window (same profile).
+    # `open -a Chrome <url>` may open a new/incognito window depending on profile config.
+    script = f'''
+    tell application "Google Chrome"
+        activate
+        if (count of windows) > 0 then
+            set URL of active tab of first window to "{url}"
+        else
+            make new window
+            set URL of active tab of first window to "{url}"
+        end if
+    end tell
+    '''
+    subprocess.run(["osascript", "-e", script], capture_output=True, timeout=10)
     time.sleep(3)
     print(f"  🌐 Navigated to {url}")
     return True
