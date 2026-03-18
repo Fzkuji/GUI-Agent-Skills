@@ -388,4 +388,24 @@ GUIClaw/
 
 ## 📄 License
 
-MIT
+MIT — see [LICENSE](LICENSE) for details.
+
+---
+
+## 📌 Citation
+
+If you find GUIClaw useful in your research, please cite:
+
+```bibtex
+@misc{fu2026guiclaw,
+  author       = {Fu, Zichuan},
+  title        = {GUIClaw: Visual Memory-Driven GUI Automation for macOS},
+  year         = {2026},
+  publisher    = {GitHub},
+  url          = {https://github.com/Fzkuji/GUIClaw},
+}
+```
+
+<p align="center">
+  <sub>Built with 🦞 by <a href="https://github.com/Fzkuji">Zichuan Fu</a> · Powered by <a href="https://github.com/openclaw/openclaw">OpenClaw</a></sub>
+</p>
