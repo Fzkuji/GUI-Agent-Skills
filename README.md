@@ -356,19 +356,31 @@ Every action follows a mandatory protocol — **written into the code, not just 
 
 ```
 GUIClaw/
-├── SKILL.md                 # 🧠 Agent reads this first
+├── SKILL.md                   # 🧠 Main skill — agent reads this first
+├── skills/                    # 📖 Sub-skills (read on demand)
+│   ├── gui-observe/SKILL.md   #   👁️ Screenshot, OCR, identify state
+│   ├── gui-learn/SKILL.md     #   🎓 Detect components, label, filter, save
+│   ├── gui-act/SKILL.md       #   🖱️ Click, type, send, wait for UI
+│   ├── gui-memory/SKILL.md    #   💾 Memory CRUD, profiles, cleanup rules
+│   ├── gui-workflow/SKILL.md  #   🔄 Intent match, save/replay workflows
+│   └── gui-setup/SKILL.md     #   ⚙️ First-time setup on a new machine
 ├── scripts/
-│   ├── setup.sh             # 🔧 One-command setup
-│   ├── agent.py             # 🎯 Unified entry point (observe→verify→act→confirm)
-│   ├── ui_detector.py       # 🔍 Detection engine (YOLO + OCR)
-│   ├── app_memory.py        # 🧠 Visual memory (learn/detect/click/verify)
-│   ├── gui_agent.py         # 🖱️ Task executor
-│   └── template_match.py    # 🎯 Template matching
-├── actions/_actions.yaml    # 📋 Atomic operations
-├── scenes/                  # 📝 Per-app workflows
-├── apps/                    # 📱 App UI configs
-├── docs/core.md             # 📚 Lessons learned
-├── memory/                  # 🔒 Visual memory (gitignored)
+│   ├── setup.sh               # 🔧 One-command setup
+│   ├── agent.py               # 🎯 Unified entry point (all GUI ops go through here)
+│   ├── ui_detector.py         # 🔍 Detection engine (YOLO + OCR + Swift window info)
+│   ├── app_memory.py          # 🧠 Visual memory (learn/detect/click/verify/learn_site)
+│   ├── gui_agent.py           # 🖱️ Legacy task executor
+│   └── template_match.py      # 🎯 Template matching utilities
+├── memory/                    # 🔒 Visual memory (gitignored)
+│   ├── apps/<appname>/        #   Per-app: profile.json, components/, pages/, workflows/
+│   │   └── sites/<domain>/    #   Per-website memory (browsers only)
+│   └── meta_workflows/        #   Cross-app orchestration
+├── assets/                    # 🎨 Architecture diagrams, banners
+├── actions/_actions.yaml      # 📋 Atomic operation definitions
+├── docs/
+│   ├── core.md                # 📚 Lessons learned
+│   └── README_CN.md           # 🇨🇳 中文文档
+├── LICENSE                    # 📄 MIT
 └── requirements.txt
 ```
 
