@@ -29,6 +29,8 @@ SCRIPT_DIR = Path(__file__).parent
 SKILL_DIR = SCRIPT_DIR.parent
 MEMORY_DIR = SKILL_DIR / "memory" / "apps"
 
+BROWSER_APPS = {"Google Chrome", "Safari", "Firefox", "Arc", "Microsoft Edge", "Brave Browser"}
+
 
 def get_retina_scale():
     """Detect display scale factor (Retina 2x, non-Retina 1x, etc).
@@ -155,6 +157,29 @@ def eval_app(app_name, workflow=None, required_components=None):
         return code == 0, {"action": "learn", "missing": missing_required}
 
     print(f"  ✅ Memory ready: {total_components} components, {total_states} states")
+
+    # Case 4: Browser → also check per-site memory
+    if app_name in BROWSER_APPS:
+        try:
+            sys.path.insert(0, str(SCRIPT_DIR))
+            from app_memory import get_current_url, get_domain_from_url, get_site_dir
+            url = get_current_url(app_name)
+            domain = get_domain_from_url(url)
+            if domain:
+                site_dir = get_site_dir(app_name, domain)
+                site_profile = site_dir / "profile.json"
+                if not site_profile.exists():
+                    print(f"  🌐 No site memory for {domain}, learning site...")
+                    out, code = run_script("app_memory.py", ["learn_site", "--app", app_name], timeout=30)
+                    print(out)
+                else:
+                    with open(site_profile) as f:
+                        site_data = json.load(f)
+                    site_comps = len(site_data.get("components", {}))
+                    print(f"  🌐 Site memory for {domain}: {site_comps} components")
+        except Exception as e:
+            print(f"  ⚠️ Could not check site memory: {e}")
+
     return True, {"action": "skip", "components": total_components, "states": total_states}
 
 
@@ -1119,10 +1144,26 @@ def action_navigate_browser(url):
 
 
 def action_learn_app(app_name):
-    """Learn an app's UI."""
+    """Learn an app's UI. For browsers, also learns the current site."""
     app_name = resolve_app_name(app_name)
     print(f"  🧠 Learning {app_name}...")
     out, code = run_script("app_memory.py", ["learn", "--app", app_name], timeout=30)
+    print(out)
+
+    # If browser, also learn current site
+    if app_name in BROWSER_APPS:
+        print(f"  🌐 Also learning current site...")
+        site_out, site_code = run_script("app_memory.py", ["learn_site", "--app", app_name], timeout=30)
+        print(site_out)
+
+    return code == 0
+
+
+def action_learn_site(app_name=None):
+    """Learn the current website's UI in a browser (per-domain memory)."""
+    app_name = resolve_app_name(app_name or "Google Chrome")
+    print(f"  🌐 Learning current site in {app_name}...")
+    out, code = run_script("app_memory.py", ["learn_site", "--app", app_name], timeout=30)
     print(out)
     return code == 0
 
@@ -1269,6 +1310,11 @@ ACTIONS = {
         "fn": action_learn_app,
         "args": ["app"],
         "desc": "Learn an app's UI elements",
+    },
+    "learn_site": {
+        "fn": action_learn_site,
+        "optional": ["app"],
+        "desc": "Learn current website's UI (per-domain memory, default: Chrome)",
     },
     "detect": {
         "fn": action_detect,

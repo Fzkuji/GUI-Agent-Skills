@@ -850,7 +850,7 @@ def learn_site(app_name="Google Chrome", page_name="main"):
             "type": el["type"], "source": el.get("source", "unknown"),
             "rel_x": rel_x, "rel_y": rel_y,
             "w": el["w"] // 2, "h": el["h"] // 2,
-            "icon_file": f"icons/{safe_name}.png",
+            "icon_file": f"components/{safe_name}.png",
             "label": el.get("label"), "confidence": el.get("confidence", 0),
             "page": page_name, "learned_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
