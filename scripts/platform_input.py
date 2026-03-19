@@ -176,6 +176,26 @@ def get_clipboard():
 # Window management (platform-specific)
 # ═══════════════════════════════════════════
 
+def get_frontmost_app():
+    """Get the name of the currently frontmost application."""
+    if SYSTEM == "Darwin":
+        try:
+            r = subprocess.run(["osascript", "-e",
+                'tell application "System Events" to return name of first process whose frontmost is true'],
+                capture_output=True, text=True, timeout=5)
+            return r.stdout.strip()
+        except:
+            return "unknown"
+    else:
+        raise NotImplementedError(f"{SYSTEM} get_frontmost_app not yet implemented")
+
+
+def verify_frontmost(expected_app):
+    """Check if the expected app is still frontmost. Returns (is_correct, actual_app)."""
+    actual = get_frontmost_app()
+    return actual == expected_app, actual
+
+
 def activate_app(app_name):
     """Bring app window to front."""
     if SYSTEM == "Darwin":

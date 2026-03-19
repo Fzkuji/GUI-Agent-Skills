@@ -1138,7 +1138,26 @@ def click_component(app_name, component_name, verify=True):
             return False, f"Low confidence ({conf}), not clicking"
 
     # 5. Click
-    from platform_input import click_at; click_at(screen_x, screen_y) # check=True)
+    from platform_input import click_at
+    click_at(screen_x, screen_y)
+
+    # 6. Post-click: verify we're still in the right app
+    time.sleep(0.5)
+    try:
+        r = subprocess.run(["osascript", "-e",
+            'tell application "System Events" to return name of first process whose frontmost is true'],
+            capture_output=True, text=True, timeout=5)
+        current_app = r.stdout.strip()
+        if current_app and current_app != app_name:
+            print(f"  ⚠️ APP SWITCHED! Expected '{app_name}', now in '{current_app}'")
+            print(f"  ⚠️ Click may have opened another app. Re-activating {app_name}...")
+            from platform_input import activate_app
+            activate_app(app_name)
+            time.sleep(0.5)
+            return False, f"Click caused app switch to '{current_app}', re-activated {app_name}"
+    except:
+        pass
+
     return True, f"Clicked '{component_name}' at ({screen_x},{screen_y}) conf={conf}"
 
 

@@ -420,13 +420,8 @@ def observe_state(app_name, include_yolo=False):
     state = {}
 
     # 1. What app is in front?
-    try:
-        r = subprocess.run(["osascript", "-e",
-            'tell application "System Events" to return name of first process whose frontmost is true'],
-            capture_output=True, text=True, timeout=5)
-        state["frontmost"] = r.stdout.strip()
-    except:
-        state["frontmost"] = "unknown"
+    from platform_input import get_frontmost_app
+    state["frontmost"] = get_frontmost_app()
 
     # 2. Activate target app
     activate_app(app_name)
