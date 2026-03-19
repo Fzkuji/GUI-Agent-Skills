@@ -1159,39 +1159,39 @@ def match_on_fullscreen(app_name, component_name, threshold=0.6, screen_img=None
     if screen_img is None:
         return False, 0, 0, 0
 
-    # Search strategy: window-scoped first, then full screen with bounds check
-    bounds = get_window_bounds(app_name)
-    
+    # Full screen search + window bounds validation
+    # Search on entire screen (no window position dependency for matching),
+    # then verify the match is within the app's window (reject other apps).
+    gray_screen = cv2.cvtColor(screen_img, cv2.COLOR_BGR2GRAY)
     gray_tpl = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
-    
-    # Try 1: Window-scoped search (fast, no false matches from other apps)
+
+    if (gray_tpl.shape[0] > gray_screen.shape[0] or
+        gray_tpl.shape[1] > gray_screen.shape[1]):
+        return False, 0, 0, 0
+
+    result = cv2.matchTemplate(gray_screen, gray_tpl, cv2.TM_CCOEFF_NORMED)
+    _, max_val, _, max_loc = cv2.minMaxLoc(result)
+
+    if max_val < threshold:
+        return False, 0, 0, 0
+
+    # Physical pixel center → logical screen coords
+    phys_x = max_loc[0] + template.shape[1] // 2
+    phys_y = max_loc[1] + template.shape[0] // 2
+    logical_x = phys_x // 2
+    logical_y = phys_y // 2
+
+    # Validate: match must be within app's window (reject matches from other apps)
+    bounds = get_window_bounds(app_name)
     if bounds:
         wx, wy, ww, wh = bounds
-        pad = 30  # logical pixels padding
-        x1 = max(0, (wx - pad) * 2)
-        y1 = max(0, (wy - pad) * 2)
-        x2 = min(screen_img.shape[1], (wx + ww + pad) * 2)
-        y2 = min(screen_img.shape[0], (wy + wh + pad) * 2)
-        search_area = screen_img[y1:y2, x1:x2]
-        
-        gray_crop = cv2.cvtColor(search_area, cv2.COLOR_BGR2GRAY)
-        if (gray_tpl.shape[0] <= gray_crop.shape[0] and
-            gray_tpl.shape[1] <= gray_crop.shape[1]):
-            result = cv2.matchTemplate(gray_crop, gray_tpl, cv2.TM_CCOEFF_NORMED)
-            _, max_val, _, max_loc = cv2.minMaxLoc(result)
-            
-            if max_val >= threshold:
-                phys_x = x1 + max_loc[0] + template.shape[1] // 2
-                phys_y = y1 + max_loc[1] + template.shape[0] // 2
-                return True, phys_x // 2, phys_y // 2, round(max_val, 4)
-    
-    # No full-screen fallback — window-scoped only to prevent clicking other apps.
-    # If component not found in window area, it means:
-    # 1. Component appearance changed (e.g., selected vs unselected tab)
-    # 2. Component is not visible in current state
-    # 3. Window bounds are wrong
-    # In all cases, the agent should re-learn or use a different approach.
-    return False, 0, 0, 0
+        margin = 30  # logical pixels tolerance for shadows/titlebar
+        if not (wx - margin <= logical_x <= wx + ww + margin and
+                wy - margin <= logical_y <= wy + wh + margin):
+            # Match is outside the app window — likely a false match from another app
+            return False, 0, 0, 0
+
+    return True, logical_x, logical_y, round(max_val, 4)
 
 
 def _detect_visible_components(app_name, screen_img=None):
@@ -1219,19 +1219,9 @@ def _detect_visible_components(app_name, screen_img=None):
     if screen_img is None:
         return visible
     
-    # Crop to window area for faster matching
+    # Full screen search + window bounds validation (same as match_on_fullscreen)
     bounds = get_window_bounds(app_name)
-    if bounds:
-        wx, wy, ww, wh = bounds
-        # Convert to physical pixels (2x retina) with padding
-        pad = 20  # pixels padding
-        x1 = max(0, (wx - pad) * 2)
-        y1 = max(0, (wy - pad) * 2)
-        x2 = min(screen_img.shape[1], (wx + ww + pad) * 2)
-        y2 = min(screen_img.shape[0], (wy + wh + pad) * 2)
-        search_area = screen_img[y1:y2, x1:x2]
-    else:
-        search_area = screen_img
+    gray_screen = cv2.cvtColor(screen_img, cv2.COLOR_BGR2GRAY)
     
     app_dir = get_app_dir(app_name)
     for comp_name, comp_data in profile.get("components", {}).items():
@@ -1243,14 +1233,24 @@ def _detect_visible_components(app_name, screen_img=None):
         template = cv2.imread(str(tpl_path))
         if template is None:
             continue
-        # Skip if template is larger than search area
-        if template.shape[0] > search_area.shape[0] or template.shape[1] > search_area.shape[1]:
+        gray_tpl = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+        if gray_tpl.shape[0] > gray_screen.shape[0] or gray_tpl.shape[1] > gray_screen.shape[1]:
             continue
         try:
-            result = cv2.matchTemplate(search_area, template, cv2.TM_CCOEFF_NORMED)
-            _, max_val, _, _ = cv2.minMaxLoc(result)
-            if max_val >= 0.8:
-                visible.add(comp_name)
+            result = cv2.matchTemplate(gray_screen, gray_tpl, cv2.TM_CCOEFF_NORMED)
+            _, max_val, _, max_loc = cv2.minMaxLoc(result)
+            if max_val < 0.8:
+                continue
+            # Validate match is within app window
+            if bounds:
+                wx, wy, ww, wh = bounds
+                lx = (max_loc[0] + template.shape[1] // 2) // 2
+                ly = (max_loc[1] + template.shape[0] // 2) // 2
+                margin = 30
+                if not (wx - margin <= lx <= wx + ww + margin and
+                        wy - margin <= ly <= wy + wh + margin):
+                    continue
+            visible.add(comp_name)
         except Exception:
             continue
     
