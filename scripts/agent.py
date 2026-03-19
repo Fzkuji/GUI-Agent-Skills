@@ -1142,7 +1142,19 @@ def action_send_message(app_name, contact, message):
         "--param", f"message={message}",
     ], timeout=30)
     print(out)
-    return code == 0
+
+    if code != 0:
+        print(f"  ❌ Send failed. Re-learning {app_name} for retry...")
+        learn_out, learn_code = run_script("app_memory.py", ["learn", "--app", app_name], timeout=30)
+        print(learn_out)
+        print(f"  🔄 Re-learned. Observe new state before retrying.")
+        new_state = observe_state(app_name)
+        print(f"    Frontmost: {new_state['frontmost']}, Window: {new_state.get('window')}")
+        print(f"    Visible: {new_state['visible_text'][:5]}")
+        # Don't auto-retry — return failure and let agent re-plan with fresh knowledge
+        return False
+
+    return True
 
 
 def action_read_messages(app_name, contact=None):
