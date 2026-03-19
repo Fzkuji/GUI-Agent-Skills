@@ -57,6 +57,40 @@ def _log_action(action_name, elapsed, success, app=None):
         json.dump(log, f)
 
 
+def _print_session_tally():
+    """Print a one-line cumulative session summary after every action."""
+    import json
+    if not SESSION_LOG.exists():
+        return
+    try:
+        with open(SESSION_LOG) as f:
+            log = json.load(f)
+    except:
+        return
+    if not log:
+        return
+
+    total_time = sum(a["elapsed"] for a in log)
+    counts = {}
+    for a in log:
+        counts[a["action"]] = counts.get(a["action"], 0) + 1
+
+    parts = []
+    for name, label in [("learn", "learn"), ("learn_site", "learn_site"),
+                         ("read_screen", "screenshot"), ("click", "click"),
+                         ("navigate", "nav"), ("key", "key"), ("type", "type"),
+                         ("open", "open"), ("wait_for", "wait")]:
+        if counts.get(name):
+            parts.append(f"{counts[name]}×{label}")
+
+    if total_time < 60:
+        t = f"{total_time:.0f}s"
+    else:
+        t = f"{total_time/60:.1f}min"
+
+    print(f"📊 Session: {len(log)} actions, {t} total | {', '.join(parts)}")
+
+
 def action_report():
     """Print session summary and clear the log."""
     import json
@@ -1568,6 +1602,9 @@ def main():
             print(f"\n❌ Failed ({_time_str})")
         else:
             print(f"\n⏱ Completed ({_time_str})")
+
+        # Auto-print cumulative session stats after every action
+        _print_session_tally()
     else:
         print(f"Unknown action: {action_name}")
         print(f"Available: {', '.join(ACTIONS.keys())}")
