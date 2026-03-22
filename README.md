@@ -188,9 +188,9 @@ Then just chat with your agent — it reads `SKILL.md` and handles everything au
 
 ### Learn Once, Match Forever
 
-**First time** — YOLO detects everything (~4 seconds):
+**First time** — GPA-GUI-Detector detects everything (~4 seconds):
 ```
-🔍 YOLO: 43 icons    📝 OCR: 34 text elements    🔗 → 24 fixed UI components saved
+🔍 GPA-GUI-Detector: 43 icons    📝 OCR: 34 text elements    🔗 → 24 fixed UI components saved
 ```
 
 **Every time after** — instant template match (~0.3 seconds):
@@ -338,7 +338,7 @@ Every action follows a mandatory protocol — **written into the code, not just 
 | Step | What | Why |
 |------|------|-----|
 | **INTENT** | Match request to saved workflows | Reuse proven paths |
-| **OBSERVE** | Screenshot + YOLO + OCR + record token count | Know state, track cost |
+| **OBSERVE** | Screenshot + GPA-GUI-Detector + OCR + record token count | Know state, track cost |
 | **VERIFY** | Element exists? Correct window? Exact text match? | Prevent clicking wrong thing |
 | **ACT** | Click / type / send | Execute |
 | **CONFIRM** | Screenshot again, check state changed | Verify it worked |
@@ -367,7 +367,7 @@ GUIClaw/
 ├── scripts/
 │   ├── setup.sh               # 🔧 One-command setup
 │   ├── agent.py               # 🎯 Unified entry point (all GUI ops go through here)
-│   ├── ui_detector.py         # 🔍 Detection engine (YOLO + OCR + Swift window info)
+│   ├── ui_detector.py         # 🔍 Detection engine (GPA-GUI-Detector + OCR + Swift window info)
 │   ├── app_memory.py          # 🧠 Visual memory (learn/detect/click/verify/learn_site)
 │   ├── gui_agent.py           # 🖱️ Legacy task executor
 │   └── template_match.py      # 🎯 Template matching utilities
@@ -395,7 +395,7 @@ GUIClaw/
 | | |
 |---|---|
 | 🦞 **[OpenClaw](https://github.com/openclaw/openclaw)** | AI assistant framework — loads GUIClaw as a skill |
-| 🔍 **[GPA-GUI-Detector](https://huggingface.co/Salesforce/GPA-GUI-Detector)** | Salesforce YOLO model for UI detection |
+| 🔍 **[GPA-GUI-Detector](https://huggingface.co/Salesforce/GPA-GUI-Detector)** | Salesforce/GPA-GUI-Detector — general-purpose UI element detection model |
 | 💬 **[Discord Community](https://discord.gg/BQbUmVuD)** | Get help, share feedback |
 
 ## 📄 License

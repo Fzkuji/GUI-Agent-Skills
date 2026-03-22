@@ -168,9 +168,9 @@ bash scripts/setup.sh
 
 ### 一次学习，永久匹配
 
-**首次** — YOLO 检测全部元素（约 4 秒）：
+**首次** — GPA-GUI-Detector 检测全部元素（约 4 秒）：
 ```
-🔍 YOLO: 43 个图标    📝 OCR: 34 个文字元素    🔗 → 保存 24 个固定 UI 组件
+🔍 GPA-GUI-Detector: 43 个图标    📝 OCR: 34 个文字元素    🔗 → 保存 24 个固定 UI 组件
 ```
 
 **之后每次** — 即时模板匹配（约 0.3 秒）：
@@ -262,7 +262,7 @@ python3 agent.py wait_for --app "CleanMyMac X" --component Run
 | 步骤 | 内容 | 原因 |
 |------|------|------|
 | **意图** | 将请求匹配到已有工作流 | 复用已验证的路径 |
-| **观察** | 截屏 + YOLO + OCR + 记录 token 数 | 了解状态，追踪成本 |
+| **观察** | 截屏 + GPA-GUI-Detector + OCR + 记录 token 数 | 了解状态，追踪成本 |
 | **验证** | 元素存在？正确窗口？精确文字匹配？ | 防止误点 |
 | **执行** | 点击 / 输入 / 发送 | 执行操作 |
 | **确认** | 再次截屏，检查状态变化 | 验证成功 |
@@ -284,7 +284,7 @@ GUIClaw/
 ├── scripts/
 │   ├── setup.sh             # 🔧 一键安装
 │   ├── agent.py             # 🎯 统一入口（观察→验证→执行→确认）
-│   ├── ui_detector.py       # 🔍 检测引擎（YOLO + OCR）
+│   ├── ui_detector.py       # 🔍 检测引擎（GPA-GUI-Detector + OCR）
 │   ├── app_memory.py        # 🧠 视觉记忆（学习/检测/点击/验证）
 │   ├── gui_agent.py         # 🖱️ 任务执行器
 │   └── template_match.py    # 🎯 模板匹配
@@ -307,7 +307,7 @@ GUIClaw/
 | | |
 |---|---|
 | 🦞 **[OpenClaw](https://github.com/openclaw/openclaw)** | AI 助手框架 — 将 GUIClaw 作为技能加载 |
-| 🔍 **[GPA-GUI-Detector](https://huggingface.co/Salesforce/GPA-GUI-Detector)** | Salesforce YOLO 模型，用于 UI 检测 |
+| 🔍 **[GPA-GUI-Detector](https://huggingface.co/Salesforce/GPA-GUI-Detector)** | Salesforce/GPA-GUI-Detector — 通用 UI 元素检测模型 |
 | 💬 **[Discord 社区](https://discord.gg/BQbUmVuD)** | 获取帮助，分享反馈 |
 
 ## 📄 许可证

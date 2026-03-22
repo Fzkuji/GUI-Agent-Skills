@@ -1243,7 +1243,7 @@ def detect_with_memory(app_name, threshold=0.8):
     """
     sys.path.insert(0, str(SCRIPT_DIR))
 
-    # Capture window crop for YOLO detection (new element discovery)
+    # Capture window crop for GPA-GUI-Detector detection (new element discovery)
     img_path, win_x, win_y, win_w, win_h = capture_window(app_name)
     if not img_path:
         return [], [], None
@@ -1450,7 +1450,7 @@ def click_and_record(app_name, label, x, y):
     """Click at (x, y) and record state transition.
     
     Use this for ANY click — whether coordinates came from template matching,
-    YOLO detection, or OCR. Ensures every click builds the state graph.
+    GPA-GUI-Detector detection, or OCR. Ensures every click builds the state graph.
     
     Uses both template matching (saved components) AND OCR text to detect
     state changes. This way it works even before the app has been learned.

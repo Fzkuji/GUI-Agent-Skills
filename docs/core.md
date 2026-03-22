@@ -7,10 +7,10 @@
 | **Template match** | ~0.3s | Known UI elements from memory (conf=1.0) |
 | **cliclick** | instant | Mouse clicks (`c:x,y`), keys (`kp:return`) |
 | **Apple Vision OCR** | ~1.6s | Find text on screen (Chinese + English) |
-| **GPA-GUI-Detector** | ~0.3s | Find icons/buttons (YOLO, 40MB) |
+| **GPA-GUI-Detector** | ~0.3s | General-purpose UI element detection (40MB) |
 | **Screenshot + Vision** | ~5-10s | Last resort, send to LLM for analysis |
 
-**Rule**: Always try cheaper methods first. Don't run YOLO+OCR if template match works.
+**Rule**: Always try cheaper methods first. Don't run GPA-GUI-Detector+OCR if template match works.
 
 ## Coordinate System
 
@@ -54,11 +54,11 @@ Screen (0,0) ──────────────────────�
 - **Cmd+F opens web search (搜一搜)** — NOT contact search. Use sidebar click or search bar template
 - **Re-clicking selected chat does nothing** — click away first, then back
 - **Input field placeholder invisible to OCR** — use window_calc positioning
-- **Only 4 AX elements** — must use YOLO+OCR for everything
+- **Only 4 AX elements** — must use GPA-GUI-Detector+OCR for everything
 - **Left sidebar icons are gray-on-gray** — only GPA-GUI-Detector can detect them (OmniParser fails)
 
 ### Detection
-- **GPA-GUI-Detector > OmniParser YOLO** for desktop apps (40MB vs 41MB, same architecture, better training data)
+- **Salesforce/GPA-GUI-Detector > OmniParser** for desktop apps (40MB vs 41MB, same architecture, better training data)
 - **Apple Vision OCR > EasyOCR** for Chinese (EasyOCR produces garbled output for Chinese)
 - **AX is perfect for Dock/menubar** — don't waste time on CV for those
 - **Electron apps (Discord, Cursor) have huge AX trees** — filter by region, don't scan everything
@@ -73,7 +73,7 @@ Screen (0,0) ──────────────────────�
 - **EXPLORE before acting**: when unsure of state, crop window screenshot and use vision model to look at it
 
 ### Status Bar / Menu Bar / Floating Windows
-- **Status bar icons**: Use AppleScript `click menu bar item 1 of menu bar 2 of process "AppName"` — NOT screenshot+YOLO
+- **Status bar icons**: Use AppleScript `click menu bar item 1 of menu bar 2 of process "AppName"` — NOT screenshot+GPA-GUI-Detector
 - **Menu items**: Navigate by name: `click menu item "Switch Profile" of menu 1 of ...`
 - **Sub-menus**: `click menu item "MESL" of menu 1 of menu item "Switch Profile" of ...`
 - **Check active item**: `value of attribute "AXMenuItemMarkChar"` returns checkmark
@@ -116,7 +116,7 @@ Screen (0,0) ──────────────────────�
 | System Settings | ~500 | SwiftUI/AppKit | Full AX, native best |
 | Outlook | Very many | Electron | Full AX but slow to scan |
 | Cursor | Very many | Electron (VS Code) | Full AX but slow to scan |
-| **WeChat** | **4** | Custom engine | Only window buttons, need YOLO+OCR |
+| **WeChat** | **4** | Custom engine | Only window buttons, need GPA-GUI-Detector+OCR |
 | Telegram | Unknown | Custom | Needs testing |
 | Dock | Full | System | Always has names + positions |
 | Menu bar | Full | System | Always has names + positions |
@@ -124,9 +124,9 @@ Screen (0,0) ──────────────────────�
 
 ### LLM Role: Decision Only, Never Coordinates
 - **LLM decides WHAT to click** (which component/button name) — never WHERE (coordinates)
-- **Coordinates ALWAYS come from detection tools**: OCR, YOLO, template match
+- **Coordinates ALWAYS come from detection tools**: OCR, GPA-GUI-Detector, template match
 - **LLM never writes coordinates directly** — not in code, not in commands, not anywhere
-- **Correct**: LLM → "click Force Quit" → OCR/YOLO/template finds coordinates → click
+- **Correct**: LLM → "click Force Quit" → OCR/GPA-GUI-Detector/template finds coordinates → click
 - **Wrong**: LLM → "click at (719, 534)" → miss
 
 ### OCR Text Matching Pitfalls

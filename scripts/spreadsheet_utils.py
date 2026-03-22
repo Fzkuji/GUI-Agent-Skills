@@ -243,7 +243,7 @@ guard let image = NSImage(contentsOfFile: imagePath),
 
 let request = VNRecognizeTextRequest()
 request.recognitionLevel = .accurate
-request.recognitionLanguages = ["en-US"]
+request.recognitionLanguages = ["zh-Hans", "zh-Hant", "en-US"]
 
 let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
 try? handler.perform([request])

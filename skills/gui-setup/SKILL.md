@@ -20,7 +20,7 @@ Installs: cliclick, Python 3.12, PyTorch, ultralytics, OpenCV, GPA-GUI-Detector 
 | Script | Purpose |
 |--------|---------|
 | `agent.py` | **Unified entry point** — all GUI ops go through here |
-| `ui_detector.py` | Detection engine (YOLO + OCR + Swift window info) |
+| `ui_detector.py` | Detection engine (GPA-GUI-Detector + OCR + Swift window info) |
 | `app_memory.py` | Per-app visual memory (learn/detect/click/verify) |
 | `gui_agent.py` | Legacy task executor (send_message, read_messages) |
 | `template_match.py` | Template matching utilities |

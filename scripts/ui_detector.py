@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 UI Element Detector — unified detection using:
-1. GPA-GUI-Detector (YOLO) — icons, buttons, UI elements
+1. Salesforce/GPA-GUI-Detector — icons, buttons, UI elements
 2. Apple Vision OCR — text elements
 3. Accessibility API — Dock, menubar, status bar
 
@@ -103,22 +103,22 @@ def take_fullscreen(out_path="/tmp/ui_detect_full.png"):
 
 
 # ═══════════════════════════════════════════
-# GPA-GUI-Detector (YOLO)
+# Salesforce/GPA-GUI-Detector
 # ═══════════════════════════════════════════
 
-_yolo_model = None
+_gpa_model = None
 
-def load_yolo():
-    global _yolo_model
-    if _yolo_model is None:
+def load_gpa_detector():
+    global _gpa_model
+    if _gpa_model is None:
         from ultralytics import YOLO
-        _yolo_model = YOLO(GPA_MODEL)
-    return _yolo_model
+        _gpa_model = YOLO(GPA_MODEL)
+    return _gpa_model
 
 
 def detect_icons(img_path, conf=0.1, iou=0.3):
-    """Detect UI elements using GPA-GUI-Detector."""
-    model = load_yolo()
+    """Detect UI elements using Salesforce/GPA-GUI-Detector."""
+    model = load_gpa_detector()
     results = model.predict(img_path, conf=conf, iou=iou, verbose=False)
     r = results[0]
 
@@ -131,7 +131,7 @@ def detect_icons(img_path, conf=0.1, iou=0.3):
         confidence = float(box.conf[0])
         elements.append({
             "type": "icon",
-            "source": "gpa_yolo",
+            "source": "gpa_detector",
             "x": x1, "y": y1,
             "w": x2 - x1, "h": y2 - y1,
             "cx": (x1 + x2) // 2, "cy": (y1 + y2) // 2,
@@ -450,7 +450,7 @@ def annotate_image(img_path, elements, out_path=None, retina_scale=2):
 # ═══════════════════════════════════════════
 
 def detect_all(app_name=None, fullscreen=False, include_ax=False,
-               yolo_conf=0.1, yolo_iou=0.3, merge_iou=0.3):
+               gpa_conf=0.1, gpa_iou=0.3, merge_iou=0.3):
     """Run full detection pipeline.
 
     Returns: (elements, img_path, annotated_path)
@@ -476,8 +476,8 @@ def detect_all(app_name=None, fullscreen=False, include_ax=False,
 
     # 2. GPA-GUI-Detector
     t1 = time.time()
-    icon_elements, img_w, img_h = detect_icons(img_path, conf=yolo_conf, iou=yolo_iou)
-    print(f"  🔍 YOLO: {len(icon_elements)} icons ({time.time()-t1:.1f}s)")
+    icon_elements, img_w, img_h = detect_icons(img_path, conf=gpa_conf, iou=gpa_iou)
+    print(f"  🔍 GPA-GUI-Detector: {len(icon_elements)} icons ({time.time()-t1:.1f}s)")
 
     # 3. Apple Vision OCR
     t2 = time.time()
@@ -512,8 +512,8 @@ def main():
     parser.add_argument("--app", help="App name to detect")
     parser.add_argument("--fullscreen", action="store_true", help="Full screen detection")
     parser.add_argument("--save", action="store_true", help="Save results to file")
-    parser.add_argument("--conf", type=float, default=0.1, help="YOLO confidence threshold")
-    parser.add_argument("--iou", type=float, default=0.3, help="YOLO NMS IoU threshold")
+    parser.add_argument("--conf", type=float, default=0.1, help="GPA-GUI-Detector confidence threshold")
+    parser.add_argument("--iou", type=float, default=0.3, help="GPA-GUI-Detector NMS IoU threshold")
     parser.add_argument("--merge-iou", type=float, default=0.3, help="Merge IoU threshold")
     parser.add_argument("--no-ax", action="store_true", help="Skip AX API")
     parser.add_argument("--json", action="store_true", help="Output JSON only")
@@ -523,8 +523,8 @@ def main():
         app_name=args.app,
         fullscreen=args.fullscreen,
         include_ax=not args.no_ax,
-        yolo_conf=args.conf,
-        yolo_iou=args.iou,
+        gpa_conf=args.conf,
+        gpa_iou=args.iou,
         merge_iou=args.merge_iou,
     )
 

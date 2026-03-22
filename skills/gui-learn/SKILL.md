@@ -22,7 +22,7 @@ python3 scripts/agent.py learn --app AppName
 1. Activate app, ensure window ≥ 800x600
 2. agent.py runs learn:
    a. Takes full-screen screenshot, crops window region
-   b. Runs GPA-GUI-Detector (YOLO) → icons, buttons, UI elements
+   b. Runs Salesforce/GPA-GUI-Detector → icons, buttons, UI elements
    c. Merges results with IoU dedup
    d. Crops each element → saves to memory/apps/<appname>/components/
    e. Reports unlabeled icons

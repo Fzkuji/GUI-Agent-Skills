@@ -100,7 +100,7 @@ Outputs duration, context delta, and operation counts. Use `tracker.py history` 
 1. **Vision-driven, no shortcuts** — screenshot → detect → match → click. Only allowed system calls: `activate` (bring to front), `screencapture`, `platform_input.py` (pynput click/type).
 2. **Coordinates from detection only:**
    - **Saved components** → template matching (conf≈1.0, pixel-precise)
-   - **Dynamic content** (menus, search results) → YOLO/OCR detection → bbox center
+   - **Dynamic content** (menus, search results) → GPA-GUI-Detector/OCR detection → bbox center
    - **`image` tool = understanding only** ("what is this?", "which one?", "did it work?"). NEVER for coordinates.
 3. **Not found = not on screen** — don't lower thresholds. Re-learn current state to discover new components.
 4. **State graph drives navigation** — each click records a transition. Use `find_path()` to route between states.
@@ -138,7 +138,7 @@ gui-agent/
 │   ├── agent.py          # CLI entry point
 │   ├── app_memory.py     # Components, states, transitions, matching
 │   ├── platform_input.py # Cross-platform input (pynput)
-│   ├── ui_detector.py    # YOLO + OCR detection
+│   ├── ui_detector.py    # GPA-GUI-Detector + OCR detection
 │   └── template_match.py # Legacy template matching
 ├── memory/               # Visual memory (gitignored)
 │   ├── apps/<appname>/profile.json  # Components + states + transitions

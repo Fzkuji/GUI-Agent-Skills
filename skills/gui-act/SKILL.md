@@ -10,7 +10,7 @@ description: "Execute GUI actions — click, type, send messages. Auto-verificat
 | Content type | Method | Precision |
 |---|---|---|
 | Saved component | Template matching (`click_component`) | Pixel-precise (conf≈1.0) |
-| Dynamic content (menu, search result) | YOLO/OCR detection (`detect_all`) | Bbox-precise |
+| Dynamic content (menu, search result) | GPA-GUI-Detector/OCR detection (`detect_all`) | Bbox-precise |
 | Unknown element | Learn first, then template match | Pixel-precise |
 
 **`image` tool = understanding only.** Never ask it for coordinates.
@@ -42,7 +42,7 @@ ok, msg = click_component(app_name, component_name)
 For elements without saved templates (menus, search results, chat messages):
 
 ```bash
-# Step 1: Detect with YOLO+OCR
+# Step 1: Detect with GPA-GUI-Detector+OCR
 # Step 2: Find target coordinates
 # Step 3: Click AND record state transition:
 python3 scripts/app_memory.py click_at --app AppName --label "button_text" --x 977 --y 653
@@ -58,7 +58,7 @@ ok, msg, visible = click_and_record(app_name, "button_text", x, y)
 Always use `click_and_record()` or `click_component()` so the state graph gets updated.
 Every click must build the graph — otherwise the agent learns nothing from its actions.
 
-OCR returns logical coordinates. YOLO returns physical (÷2 for logical).
+OCR returns logical coordinates. GPA-GUI-Detector returns physical (÷2 for logical).
 
 ## Not Found?
 
@@ -88,9 +88,9 @@ screenshot("/tmp/check.png")      # Full screen capture
 No hardcoded flow. First time: follow steps manually with screenshot verification at each step. After success: save as workflow for replay.
 
 Generic steps:
-1. Find contact (search or scroll) — use YOLO/OCR detection for coordinates
+1. Find contact (search or scroll) — use GPA-GUI-Detector/OCR detection for coordinates
 2. Verify chat header shows correct contact — `image` tool for understanding
-3. Click input field — template match or YOLO detection
+3. Click input field — template match or GPA-GUI-Detector detection
 4. Paste message — `paste_text()`
 5. Verify text in input — `image` tool or `get_clipboard()`
 6. Send — `key_press("return")`

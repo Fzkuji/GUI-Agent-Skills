@@ -405,14 +405,14 @@ def get_window_bounds(app_name):
 # These functions enforce the Operation Protocol
 # ═══════════════════════════════════════════
 
-def observe_state(app_name, include_yolo=False):
+def observe_state(app_name, include_gpa=False):
     """STEP 0: Observe current state before any action.
 
     MANDATORY. Never skip this.
 
     Args:
         app_name: target app
-        include_yolo: if True, also run YOLO icon detection (slower but finds buttons)
+        include_gpa: if True, also run GPA-GUI-Detector icon detection (slower but finds buttons)
                      Default False for speed. Set True when OCR can't find target.
 
     Returns: {frontmost, window, visible_text, all_elements, icon_count, ...}
@@ -441,7 +441,7 @@ def observe_state(app_name, include_yolo=False):
                     "--out", "/tmp/_observe_s.png"],
                    capture_output=True, timeout=5)
 
-    # 5. Detection: OCR + YOLO (both on original retina, auto-convert to logical)
+    # 5. Detection: OCR + GPA-GUI-Detector (both on original retina, auto-convert to logical)
     sys.path.insert(0, str(SCRIPT_DIR))
     try:
         import ui_detector
@@ -461,9 +461,9 @@ def observe_state(app_name, include_yolo=False):
                 "type": "text",
             })
 
-        # YOLO: icon/button elements (only if requested)
+        # GPA-GUI-Detector: icon/button elements (only if requested)
         state["icon_count"] = 0
-        if include_yolo:
+        if include_gpa:
             try:
                 icon_elements, img_w, img_h = ui_detector.detect_icons(
                     "/tmp/_observe.png", conf=0.2, iou=0.3)

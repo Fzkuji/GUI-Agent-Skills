@@ -17,7 +17,7 @@
 
 ### Detection Model: GPA-GUI-Detector
 
-- **What**: A general-purpose GUI element detection model (YOLO-based), trained to detect UI components (buttons, icons, inputs, etc.) across any platform
+- **What**: A general-purpose GUI element detection model (built on YOLO architecture), trained to detect UI components (buttons, icons, inputs, etc.) across any platform
 - **Runs on**: Mac host machine (Apple Silicon), **not** inside the VM
 - **Input**: Any screenshot image — works on macOS, Linux, Windows, web, mobile UIs alike. The model is platform-agnostic; just feed it a screenshot PNG and it returns bounding boxes
 - **Output**: Bounding boxes with confidence scores for all detected UI elements
