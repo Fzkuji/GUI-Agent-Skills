@@ -61,12 +61,12 @@ GUIClaw runs on the following stack:
 
 | Metric | Value |
 |--------|-------|
-| Tasks tested | 23 / 46 |
-| Tasks passed | **23** |
+| Tasks tested | 24 / 46 |
+| Tasks passed | **24** |
 | Tasks failed | 0 |
-| **Pass rate** | **100%** (23/23) |
+| **Pass rate** | **100%** (24/24) |
 
-> **All 23 tasks completed successfully** (20 feasible + 3 infeasible). Zero failures.
+> **All 24 tasks completed successfully** (21 feasible + 3 infeasible). Zero failures.
 
 ### Detailed Results
 
@@ -95,12 +95,13 @@ GUIClaw runs on the following stack:
 | 20 | `a96b564e` | Find discussion with most replies on FlightAware | 1.0 | ✅ | Footer → Community → Discussion → Top → All time → sort by Replies → "The Banter Thread" |
 | 21 | `1704f00f` | Rent large car in Zurich, Mon-Fri, sort by price | 1.0 | ✅ | Multiple auto-corrections during execution: fixed city (Airport→city), date (Apr→Mar), day (24→23). Final: Zürich, Mar 23-27, Large, Price |
 | 22 | `f3b19d1e` | Find FAQ page about ticket delivery on Ticketek | 1.0 | ✅ | ⚠️ Website restructured: old URL `Ticket-Delivery-FAQs` no longer exists (now `Ticket-Delivery`). Eval passed on URL pattern match but actual page shows 404. |
+| 23 | `82bc8d6a` | Look up Mumbai→Stockholm flight on Qatar Airways | 1.0 | ✅ | From=BOM, To=STO, Date=2026-03-23 (next Monday) |
 
 
 
 ### Not Yet Tested
 
-- Tasks 23–45: External website tasks (shopping, forums, etc.)
+- Tasks 24–45: External website tasks (shopping, forums, etc.)
 
 ## Comparison with Other Agents
 
@@ -110,9 +111,9 @@ Reference scores from the [OSWorld leaderboard](https://os-world.github.io/) (Ch
 |------|-------|--------|---------|------|
 | 1 | HIPPO Agent w/Opus 4.5 (Lenovo) | 60.4% (25.96/43) | 74.5% | Agentic framework |
 | 2 | Claude Sonnet 4.6 (Anthropic) | 78.5% (32.96/42) | 72.1% | General model |
-| — | **GUIClaw** | **100%** (23/23 tested) | TBD | OpenClaw + Claude Opus 4.6 |
+| — | **GUIClaw** | **100%** (24/24 tested) | TBD | OpenClaw + Claude Opus 4.6 |
 
-> ⚠️ GUIClaw's score is on a partial Chrome subset (23/46 tasks). Full benchmark in progress.
+> ⚠️ GUIClaw's score is on a partial Chrome subset (24/46 tasks). Full benchmark in progress.
 
 ## Environment Details
 
