@@ -4,16 +4,26 @@
 
 ## Overview
 
-**GUIClaw** is evaluated on [OSWorld](https://github.com/xlang-ai/OSWorld), a real-computer benchmark for multimodal agents. Unlike API-based agents that rely on expensive cloud models (GPT-4V, Claude, etc.), GUIClaw uses **local YOLO detection + Apple Vision OCR** with a general-purpose LLM orchestrator — no task-specific fine-tuning, no dedicated vision-language model.
+**GUIClaw** is evaluated on [OSWorld](https://github.com/xlang-ai/OSWorld), a real-computer benchmark for multimodal agents. GUIClaw uses **GPA-GUI-Detector (a general-purpose UI element detection model) + Apple Vision OCR** with a general-purpose LLM orchestrator — no task-specific fine-tuning, no dedicated vision-language model.
 
-### Key Advantages
+### Architecture
 
 | Feature | GUIClaw | Typical OSWorld Agents |
 |---------|---------|----------------------|
-| Vision backbone | Local YOLO (GPA-GUI-Detector) + OCR | GPT-4V / Claude Vision API |
-| UI element detection | Template matching + YOLO bboxes | Screenshot → VLM prompt |
-| Action execution | Direct pyautogui coordinates | Coordinate extraction from VLM |
+| UI element detection | GPA-GUI-Detector + template matching | Screenshot → VLM prompt |
+| Text recognition | Apple Vision OCR | VLM built-in OCR |
+| Action execution | Direct pyautogui with detected coordinates | Coordinate extraction from VLM |
 | Requires fine-tuning | No | Often yes |
+
+### Detection Model: GPA-GUI-Detector
+
+- **What**: A general-purpose GUI element detection model (YOLO-based), trained to detect UI components (buttons, icons, inputs, etc.) across any platform
+- **Runs on**: Mac host machine (Apple Silicon), **not** inside the VM
+- **Input**: Any screenshot image — works on macOS, Linux, Windows, web, mobile UIs alike. The model is platform-agnostic; just feed it a screenshot PNG and it returns bounding boxes
+- **Output**: Bounding boxes with confidence scores for all detected UI elements
+- **Model path**: `~/GPA-GUI-Detector/model.pt`
+
+The workflow for OSWorld: VM screenshot is downloaded to Mac via HTTP API → GPA-GUI-Detector runs locally on Mac to detect UI elements → OCR runs locally to detect text → coordinates are sent back to VM for pyautogui execution.
 
 ## Chrome Domain Results
 
@@ -23,12 +33,12 @@
 
 | Metric | Value |
 |--------|-------|
-| Tasks tested | 12 |
-| Tasks passed (score = 1.0) | 7 |
-| Pass rate (tested) | **58.3%** |
-| GUI operation success rate | **91.7%** (11/12) |
+| Tasks tested | 13 |
+| Tasks passed (score = 1.0) | 8 |
+| Pass rate (tested) | **61.5%** |
+| GUI operation success rate | **92.3%** (12/13) |
 | Failures due to infra/eval issues | 4 |
-| Adjusted pass rate (excl. infra issues) | **87.5%** (7/8) |
+| Adjusted pass rate (excl. infra issues) | **88.9%** (8/9) |
 
 > **Note:** The "GUI operation success rate" counts tasks where GUIClaw successfully performed the correct UI actions, regardless of whether the evaluator marked it as pass. Several failures are due to environment issues (domain redirects, PDF rendering differences, missing Chrome features on Linux), not agent capability.
 
@@ -36,16 +46,17 @@
 
 | # | Task ID | Instruction | Score | Status | Notes |
 |---|---------|-------------|-------|--------|-------|
-| 0 | `bb5e4c0d` | Make Bing the default search engine | 1.0 | ✅ PASS | YOLO found ⋮ button → OCR found "Make default" |
-| 1 | `7b6c7e24` | Delete Amazon tracking cookies | 1.0 | ✅ PASS | OCR "Delete all data" → YOLO trash button |
+| 0 | `bb5e4c0d` | Make Bing the default search engine | 1.0 | ✅ PASS | GPA-GUI-Detector found ⋮ button → OCR found "Make default" |
+| 1 | `7b6c7e24` | Delete Amazon tracking cookies | 1.0 | ✅ PASS | OCR "Delete all data" → GPA-GUI-Detector found trash button |
 | 2 | `06fe7178` | Restore last closed tab | 1.0 | ✅ PASS | Ctrl+Shift+T to restore tripadvisor tab |
-| 3 | `e1e75309` | Save webpage as PDF (margins=none) to Desktop | 0.957 | ❌ FAIL | GUI ops correct; PDF rendering diff vs gold |
+| 3 | `e1e75309` | Save webpage as PDF (margins=none) to Desktop | 0.957 | ❌ FAIL | GUI ops correct; PDF rendering diff vs gold (A4 vs Letter) |
+| 4 | `35253b65` | Create desktop shortcut for webpage | 1.0 | ✅ PASS | GPA-GUI-Detector found ⋮ → OCR located "Create shortcut..." in submenu |
 | 5 | `2ad9387a` | Create "Favorites" folder on bookmarks bar | 1.0 | ✅ PASS | OCR "Search bookmarks" → "Add new folder" → "Save" |
 | 7 | `2ae9ba84` | Rename Chrome profile to "Thomas" | 1.0 | ✅ PASS | OCR found "Work" text → direct click to edit |
 | 9 | `af630914` | Set font size to largest | 1.0 | ✅ PASS | OCR found "Huge" label → click slider endpoint |
 | 12 | `12086550` | Navigate to password manager | 1.0 | ✅ PASS | Direct URL navigation: chrome://password-manager/passwords |
 
-### Previously Attempted (Infra/Environment Issues)
+### Failed Due to Infrastructure/Environment Issues
 
 | # | Task ID | Instruction | Issue |
 |---|---------|-------------|-------|
@@ -56,7 +67,7 @@
 
 ### Not Yet Tested
 
-- Tasks 4, 6, 8, 10, 13, 15, 16: Local Chrome settings tasks
+- Tasks 6, 8, 10, 13, 15, 16: Local Chrome settings tasks
 - Tasks 19–45: External website tasks (flights, shopping, etc.)
 
 ## Methodology
@@ -64,36 +75,44 @@
 ### Detection Pipeline
 
 ```
-Screenshot (1920×1080 PNG)
+VM Screenshot (1920×1080 PNG)
+    │
+    │  downloaded to Mac via HTTP API
     ↓
-┌─────────────┐    ┌──────────────┐
-│ YOLO detect │    │ Apple Vision │
-│ (icons/UI)  │    │ OCR (text)   │
-└──────┬──────┘    └──────┬───────┘
-       │                  │
-       └────────┬─────────┘
-                ↓
-    Fused component list
-    (bbox + label + confidence)
-                ↓
-    LLM orchestrator decides action
-                ↓
-    pyautogui executes (click/type/hotkey)
+┌───────────────────┐    ┌──────────────┐
+│ GPA-GUI-Detector  │    │ Apple Vision │
+│ (runs on Mac)     │    │ OCR (Mac)    │
+│ detects UI icons, │    │ detects text │
+│ buttons, inputs   │    │ on any OS UI │
+└────────┬──────────┘    └──────┬───────┘
+         │                      │
+         └──────────┬───────────┘
+                    ↓
+      Fused component list
+      (bbox + label + confidence)
+                    ↓
+      LLM orchestrator decides action
+                    ↓
+      pyautogui executes on VM
+      (click/type/hotkey via HTTP API)
 ```
+
+**Key point**: GPA-GUI-Detector and Apple Vision OCR both run on the Mac host. They accept any screenshot image as input — macOS, Linux, Windows, web, mobile — the detection is platform-agnostic. For OSWorld, the VM screenshot is simply downloaded as a PNG file and processed locally.
 
 ### Per-Task Workflow
 
 1. **Snapshot restore** → Clean VM state (init_state)
 2. **Config setup** → Launch Chrome, run task-specific setup
-3. **Screenshot** → Capture current VM screen
-4. **YOLO + OCR** → Detect all UI components and text
+3. **Screenshot** → Download VM screen as PNG to Mac
+4. **GPA-GUI-Detector + OCR** → Detect all UI components and text locally on Mac
 5. **LLM reasoning** → Decide which element to interact with
-6. **Action execution** → pyautogui click/type/hotkey via VM API
+6. **Action execution** → Send pyautogui click/type/hotkey to VM via HTTP API
 7. **Repeat 3–6** until task complete
 8. **Evaluation** → Run official OSWorld evaluator
 
 ### Environment Details
 
+- **Detection host**: Mac (Apple Silicon) — runs GPA-GUI-Detector and Apple Vision OCR
 - **VM**: Ubuntu ARM (aarch64), VMware Fusion 13.6.4
 - **Resolution**: 1920×1080 (must set via xrandr after snapshot restore)
 - **Browser**: Chromium 138 (launched as `google-chrome`)
@@ -105,7 +124,7 @@ Screenshot (1920×1080 PNG)
 
 | Issue | Impact | Workaround |
 |-------|--------|------------|
-| VM resolution mismatch | YOLO coords off by 1.5x | `xrandr --mode 1920x1080` after every snapshot restore |
+| VM resolution mismatch | Detection coords off by 1.5x | `xrandr --mode 1920x1080` after every snapshot restore |
 | `.lck` files after forced shutdown | VM won't start | `rm -rf *.lck` in VM directory |
 | Surge TUN intercepts VM traffic | Python requests timeout | `NO_PROXY=172.16.82.0/24` or use `http.client` |
 | Chrome address bar autocomplete | typewrite URL corrupted | Press Escape before typing, or use Ctrl+L first |
@@ -121,9 +140,9 @@ Reference scores from the [OSWorld leaderboard](https://os-world.github.io/):
 | Human | 72.36% | — | Manual |
 | Claude Computer Use | 14.90% | — | Claude 3.5 Sonnet + screenshots |
 | GPT-4V + SoM | 6.27% | — | GPT-4V + Set-of-Mark |
-| **GUIClaw** | **TBD** | **58.3%** (tested) | YOLO + OCR + LLM orchestrator |
+| **GUIClaw** | **TBD** | **61.5%** (tested) | GPA-GUI-Detector + OCR + LLM |
 
-> ⚠️ GUIClaw's Chrome score is on a partial subset (12/46 tasks). Full benchmark evaluation in progress. The adjusted rate excluding infrastructure issues (87.5%) demonstrates strong GUI operation capability.
+> ⚠️ GUIClaw's Chrome score is on a partial subset (13/46 tasks). Full benchmark evaluation in progress. The adjusted rate excluding infrastructure issues (88.9%) demonstrates strong GUI operation capability.
 
 ## Files
 
