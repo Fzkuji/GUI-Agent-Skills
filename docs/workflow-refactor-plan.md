@@ -1,133 +1,143 @@
 # Workflow 重构规划
 
 > 创建日期：2026-03-24
-> 状态：实施中
+> 状态：实施中（v2 — 目标状态验证模式）
 
-## 核心改动
+## 核心原则
 
-### 1. 像素对比判断变化程度
+1. **不判断"有没有变化"，只判断"有没有到达目标状态"**
+2. **已知优先，未知才用模型** — template match → detect_all → LLM，逐级升级
+3. **workflow 是导航图，不是录制宏** — 记录状态转移关系，运行时 BFS 寻路
 
-在 `app_memory.py` 新增：
+## 分层验证策略
+
+```
+Level 0: Template Match（~0.3s，0 token）
+  → 目标状态的 defining_components 在不在屏幕上
+  → 成功 → 完成
+
+Level 1: detect_all（~2s，0 token）
+  → Level 0 失败，完整检测当前页面
+  → 识别到已知状态 → 重新寻路
+  → 识别到未知状态 → 升级 Level 2
+
+Level 2: LLM 视觉理解（~5s，有 token 消耗）
+  → 截图发给 LLM 判断怎么回事
+  → LLM 决策下一步（fallback 到探索模式）
+```
+
+## 改动清单
+
+### 1. app_memory.py
+
+**删除**：
+- `assess_change()` — 不需要像素对比了
+
+**新增**：
+- `quick_template_check(app_dir, component_names, img=None)` — 只匹配指定组件，不做全量检测
+- `identify_current_state(states, detected_components, components_data)` — 从 identify_or_create_state 拆出纯识别部分（不创建新状态）
+- `load_workflows(app_dir)` / `save_workflows(app_dir, workflows)` — workflows.json 读写
+
+**修改**：
+- `record_page_transition()` — 去掉 assess_change 调用
+
+### 2. agent.py
+
+**删除**：
+- 旧的 `run_workflow()` — 替换为 execute_workflow
+
+**新增**：
+- `execute_workflow(app_name, target_state, domain=None, img_path=None)` — 分层验证的 workflow 执行
 
 ```python
-def assess_change(before_img_path, after_img_path):
-    """用像素差异判断点击前后页面变化程度。
-    
+def execute_workflow(app_name, target_state, domain=None, img_path=None):
+    """执行 workflow：自动寻路到目标状态。
+
+    1. 识别当前状态
+    2. find_path 到目标
+    3. 逐步执行，每步用最低成本验证：
+       - Level 0: template match 目标状态的 defining_components
+       - Level 1: detect_all + identify_current_state
+       - Level 2: 返回 fallback 让 LLM 接管
+
     Args:
-        before_img_path: 点击前截图
-        after_img_path: 点击后截图
-    
+        app_name: 应用名
+        target_state: 目标状态 ID（s_xxxxx）
+        domain: 网站域名（browser 场景）
+        img_path: 当前截图路径（远程 VM 传入，本机 None 自动截图）
+
     Returns:
-        (change_type, change_ratio)
-        change_type: "no_change" | "minor_change" | "page_change"
-        change_ratio: 0.0 ~ 1.0，变化像素占比
-    
-    阈值：
-        change_ratio < 0.01  → "no_change"（截图几乎一样）
-        0.01 ~ 0.10          → "minor_change"（弹窗、toggle、局部刷新）
-        > 0.10               → "page_change"（翻页、跳转）
-    """
-    import cv2
-    import numpy as np
-    
-    before = cv2.imread(before_img_path)
-    after = cv2.imread(after_img_path)
-    
-    # 如果尺寸不同，肯定是大变化
-    if before.shape != after.shape:
-        return "page_change", 1.0
-    
-    diff = cv2.absdiff(before, after)
-    change_ratio = np.count_nonzero(diff > 30) / diff.size
-    
-    if change_ratio < 0.01:
-        return "no_change", change_ratio
-    elif change_ratio < 0.10:
-        return "minor_change", change_ratio
-    else:
-        return "page_change", change_ratio
-```
-
-### 2. 集成到 record_page_transition
-
-```python
-# 在 record_page_transition 开头先判断变化
-change_type, change_ratio = assess_change(before_img_path, after_img_path)
-
-if change_type == "no_change":
-    print(f"  ⚠️ No visible change after click (ratio={change_ratio:.4f})")
-    return {"change_type": "no_change", "change_ratio": change_ratio}
-```
-
-transition 记录加 `change_type` 字段。
-
-### 3. 统一状态识别
-
-`identify_state_by_components()` 改为同时支持旧 `visible` 和新 `defining_components`：
-
-```python
-def identify_state_by_components(app_name, visible_components):
-    """用组件集合匹配已知状态。
-    
-    同时检查 state 的 "defining_components"（新格式）和 "visible"（旧格式）。
-    用 Jaccard 相似度匹配。
+        ("success", state_id) — 到达目标
+        ("fallback", current_state_id, step_index, reason) — 需要 LLM 接管
+        ("error", message) — 无法执行
     """
 ```
 
-### 4. workflow 执行流程
+### 3. workflows.json 格式
 
-在 `run_workflow()` 里加变化验证：
+存在每个 app/site 目录下（和 meta.json 同级）：
 
-```python
-for action, expected_next_state in path:
-    before_img = screenshot()
-    click(action)
-    time.sleep(0.5)
-    after_img = screenshot()
-    
-    change_type, ratio = assess_change(before_img, after_img)
-    
-    if change_type == "no_change":
-        # 等 1.5 秒再试
-        time.sleep(1.5)
-        after_img = screenshot()
-        change_type, ratio = assess_change(before_img, after_img)
-        
-        if change_type == "no_change":
-            # 重试点击
-            click(action)
-            time.sleep(1.0)
-            after_img = screenshot()
-            change_type, ratio = assess_change(before_img, after_img)
-            
-            if change_type == "no_change":
-                return False, "Click had no effect after retry"
-    
-    # 验证到达预期状态
-    current = identify_current_state(...)
-    if current != expected_next_state:
-        # 状态不对，但页面确实变了，可能走了不同路径
-        # fallback 给 LLM
-        return False, f"Expected {expected_next_state}, got {current}"
+```json
+{
+  "check_baggage_fee": {
+    "target_state": "s_c8e5f3",
+    "description": "Navigate to baggage fee calculator",
+    "created_at": "2026-03-23 15:30:00",
+    "last_run": "2026-03-23 16:00:00",
+    "run_count": 3,
+    "success_count": 2
+  }
+}
 ```
 
-### 5. 清理死代码
+### 4. gui-workflow/SKILL.md
 
-从 `agent.py` 删除：
-- `save_meta_workflow()` / `load_meta_workflow()` — 从未使用
-- `detect_workflow_conflict()` — 空实现
-- `plan_workflow()` — 读旧格式，没用
+更新为目标状态验证模式，去掉像素对比内容。
 
-### 6. workflow 存储整合
+## quick_template_check 详细设计
 
-workflow 文件从 `workflows/*.json` 散文件改为 `workflows.json` 单文件（和 meta/components/states/transitions 同级）。
+```python
+def quick_template_check(app_dir, component_names, img=None):
+    """只检查指定组件是否在屏幕上。
 
-### 7. 更新 gui-workflow/SKILL.md
+    比 match_all_components 快——只匹配需要的几个模板，不遍历整个 profile。
 
-适配新的变化检测 + 统一状态识别。
+    Args:
+        app_dir: app/site 目录路径
+        component_names: 要检查的组件名列表
+        img: 预加载的截图（None 则自动截图）
 
-## 改动文件
+    Returns:
+        (matched_names, total_names, ratio)
+        matched_names: set of matched component names
+    """
+```
 
-- `scripts/app_memory.py` — assess_change, identify_state_by_components 改造
-- `scripts/agent.py` — run_workflow 改造, 清理死代码
-- `skills/gui-workflow/SKILL.md` — 文档更新
+## 执行流程详细
+
+### 自动模式（有已知路径）
+
+```
+任务 → 截图 → detect_all → identify_current_state → s_a
+  → find_path(s_a, target) → [(click:X, s_b), (click:Y, s_c)]
+  → Step 1: click X
+    → Level 0: quick_template_check(s_b 的 defining_components)
+    → matched 6/8 (75%) > 0.7 → 确认到达 s_b ✅
+  → Step 2: click Y
+    → Level 0: quick_template_check(s_c 的 defining_components)
+    → matched 2/8 (25%) < 0.7 → 升级 Level 1
+    → Level 1: detect_all → identify_current_state → s_unknown
+    → 不是预期的 s_c → 返回 ("fallback", s_unknown, 1, "Expected s_c")
+```
+
+### 探索模式（无路径，LLM 主导）
+
+```
+任务 → 截图 → detect_all → identify_current_state → s_a
+  → find_path(s_a, target) → None（没路径）
+  → LLM 决策：看截图，决定点 Travel_info
+  → 点击 → 截图 → detect_all → identify_or_create_state → s_b（新状态）
+  → 记录 pending: s_a --click:Travel_info--> s_b
+  → LLM 继续决策...
+  → 到达目标 → confirm_transitions → 下次有路径了
+```
