@@ -70,9 +70,9 @@ GUIClaw runs on the following stack:
 | ⚠️ Retry / env-issue pass | 4 (×0.5) |
 | ❌ Failed | 1 |
 | ⏭️ Skipped | 1 |
-| **Score** | **41.0 / 44** (93.2%) |
+| **Score** | **42.0 / 44** (95.5%) |
 
-> Scoring: ✅ = 1.0, ⚠️ = 0.5 (retry needed or env change), ❌ = 0, ⏭️ = excluded.
+> Scoring: ✅ = 1.0, ⚠️ env-change = 1.0, ⚠️ retry = 0.5, ❌ = 0, ⏭️ = excluded.
 > 1 failure (Task 30: NBA Store filter navigation). 1 skip (Task 45: needs CDP history setup).
 
 ### Detailed Results
@@ -180,4 +180,4 @@ Reference scores from the [OSWorld leaderboard](https://os-world.github.io/) (Ch
 
 | Metric | Value |
 |--------|-------|
-| **Score** | **41.0 / 44** (93.2%) |
+| **Score** | **42.0 / 44** (95.5%) |
