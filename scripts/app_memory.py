@@ -46,6 +46,448 @@ SCRIPT_DIR = Path(__file__).parent
 SKILL_DIR = SCRIPT_DIR.parent
 MEMORY_DIR = SKILL_DIR / "memory" / "apps"
 
+# Default forget threshold: a component must be missed this many consecutive
+# times before being considered stale and eligible for removal.
+DEFAULT_FORGET_THRESHOLD = 15
+
+# ═══════════════════════════════════════════
+# Split storage: meta / components / states / transitions
+# ═══════════════════════════════════════════
+
+def load_meta(app_dir):
+    """Load meta.json from app/site directory. Returns dict with defaults."""
+    meta_path = Path(app_dir) / "meta.json"
+    if meta_path.exists():
+        with open(meta_path) as f:
+            return json.load(f)
+    return {
+        "app": "",
+        "domain": "",
+        "detect_count": 0,
+        "last_updated": None,
+        "img_size": None,
+        "forget_threshold": DEFAULT_FORGET_THRESHOLD,
+    }
+
+
+def save_meta(app_dir, meta):
+    """Save meta.json to app/site directory."""
+    meta_path = Path(app_dir) / "meta.json"
+    with open(meta_path, "w") as f:
+        json.dump(meta, f, indent=2, ensure_ascii=False)
+
+
+def load_components(app_dir):
+    """Load components.json from app/site directory. Returns dict."""
+    comp_path = Path(app_dir) / "components.json"
+    if comp_path.exists():
+        with open(comp_path) as f:
+            return json.load(f)
+    return {}
+
+
+def save_components(app_dir, components):
+    """Save components.json to app/site directory."""
+    comp_path = Path(app_dir) / "components.json"
+    with open(comp_path, "w") as f:
+        json.dump(components, f, indent=2, ensure_ascii=False)
+
+
+def load_states(app_dir):
+    """Load states.json from app/site directory. Returns dict."""
+    states_path = Path(app_dir) / "states.json"
+    if states_path.exists():
+        with open(states_path) as f:
+            return json.load(f)
+    return {}
+
+
+def save_states(app_dir, states):
+    """Save states.json to app/site directory."""
+    states_path = Path(app_dir) / "states.json"
+    with open(states_path, "w") as f:
+        json.dump(states, f, indent=2, ensure_ascii=False)
+
+
+def load_transitions(app_dir):
+    """Load transitions.json from app/site directory. Returns dict (key=from|action|to)."""
+    trans_path = Path(app_dir) / "transitions.json"
+    if trans_path.exists():
+        with open(trans_path) as f:
+            return json.load(f)
+    return {}
+
+
+def save_transitions(app_dir, transitions):
+    """Save transitions.json to app/site directory."""
+    trans_path = Path(app_dir) / "transitions.json"
+    with open(trans_path, "w") as f:
+        json.dump(transitions, f, indent=2, ensure_ascii=False)
+
+
+def migrate_profile_if_needed(app_dir):
+    """Migrate old profile.json to split files (meta/components/states/transitions).
+
+    - Detects old profile.json
+    - Splits into 4 independent JSON files
+    - Adds activity tracking fields to each component
+    - Converts transitions list to dict (keyed by from|action|to)
+    - Renames old file to profile.json.bak
+    """
+    app_dir = Path(app_dir)
+    profile_path = app_dir / "profile.json"
+    if not profile_path.exists():
+        return  # Nothing to migrate
+
+    # Don't re-migrate if new files already exist
+    if (app_dir / "meta.json").exists():
+        return
+
+    with open(profile_path) as f:
+        profile = json.load(f)
+
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
+
+    # --- meta.json ---
+    meta = {
+        "app": profile.get("app", ""),
+        "domain": profile.get("domain", ""),
+        "detect_count": 0,
+        "last_updated": profile.get("last_updated", now),
+        "img_size": profile.get("img_size") or profile.get("retina_img_size"),
+        "forget_threshold": DEFAULT_FORGET_THRESHOLD,
+    }
+    # Carry over window_size if present
+    if profile.get("window_size"):
+        meta["window_size"] = profile["window_size"]
+    if profile.get("url"):
+        meta["url"] = profile["url"]
+    if profile.get("pages"):
+        meta["pages"] = profile["pages"]
+    save_meta(app_dir, meta)
+
+    # --- components.json (add activity fields) ---
+    components = profile.get("components", {})
+    for comp_name, comp_data in components.items():
+        learned_at = comp_data.get("learned_at", now)
+        comp_data.setdefault("last_seen", learned_at)
+        comp_data.setdefault("seen_count", 1)
+        comp_data.setdefault("consecutive_misses", 0)
+    save_components(app_dir, components)
+
+    # --- states.json ---
+    states = profile.get("states", {})
+    save_states(app_dir, states)
+
+    # --- transitions.json (convert list → dict) ---
+    old_transitions = profile.get("transitions", [])
+    new_transitions = {}
+    for t in old_transitions:
+        from_s = t.get("from", "")
+        action = f"click:{t.get('click', '')}" if t.get("click") else t.get("action", "")
+        to_s = t.get("to", "")
+        key = f"{from_s}|{action}|{to_s}"
+        if key in new_transitions:
+            new_transitions[key]["count"] = new_transitions[key].get("count", 1) + t.get("count", 1)
+            new_transitions[key]["last_used"] = t.get("timestamp", now)
+        else:
+            new_transitions[key] = {
+                "from_state": from_s,
+                "action": action,
+                "to_state": to_s,
+                "count": t.get("count", 1),
+                "last_used": t.get("timestamp", now),
+                "success_rate": 1.0,
+            }
+            # Carry over extra fields
+            if t.get("click_pos"):
+                new_transitions[key]["click_pos"] = t["click_pos"]
+    save_transitions(app_dir, new_transitions)
+
+    # Rename old profile.json → profile.json.bak
+    bak_path = app_dir / "profile.json.bak"
+    profile_path.rename(bak_path)
+    print(f"  📦 Migrated {profile_path} → split files (meta/components/states/transitions)")
+
+
+# ═══════════════════════════════════════════
+# Component activity tracking & forgetting (Phase 2)
+# ═══════════════════════════════════════════
+
+def update_component_activity(components, detected_names, now=None):
+    """Update component activity based on detection results.
+
+    For each component in the registry:
+    - If detected this round: last_seen=now, seen_count+=1, consecutive_misses=0
+    - If NOT detected: consecutive_misses+=1
+
+    Args:
+        components: dict of component_name -> component_data
+        detected_names: set of component names detected in this round
+        now: timestamp string (default: current time)
+
+    Returns: updated components dict
+    """
+    if now is None:
+        now = time.strftime("%Y-%m-%d %H:%M:%S")
+
+    for comp_name, comp_data in components.items():
+        if comp_name in detected_names:
+            comp_data["last_seen"] = now
+            comp_data["seen_count"] = comp_data.get("seen_count", 0) + 1
+            comp_data["consecutive_misses"] = 0
+        else:
+            comp_data["consecutive_misses"] = comp_data.get("consecutive_misses", 0) + 1
+
+    return components
+
+
+def forget_stale_components(app_dir, components, meta, states, transitions):
+    """Remove components that haven't been seen for too long.
+
+    Only runs when detect_count > forget_threshold (avoids early false removals).
+
+    For each stale component (consecutive_misses >= forget_threshold):
+    - Delete its icon image file
+    - Remove from states' defining_components
+    - If a state's defining_components becomes empty → delete the state
+    - If a transition references a deleted state → delete the transition
+
+    Args:
+        app_dir: Path to app/site directory
+        components: components dict
+        meta: meta dict
+        states: states dict
+        transitions: transitions dict (keyed by from|action|to)
+
+    Returns: (components, states, transitions) — all updated
+    """
+    threshold = meta.get("forget_threshold", DEFAULT_FORGET_THRESHOLD)
+    detect_count = meta.get("detect_count", 0)
+
+    # Don't forget too early — need enough data first
+    if detect_count <= threshold:
+        return components, states, transitions
+
+    app_dir = Path(app_dir)
+    stale_names = set()
+
+    for comp_name, comp_data in list(components.items()):
+        if comp_data.get("consecutive_misses", 0) >= threshold:
+            stale_names.add(comp_name)
+
+    if not stale_names:
+        return components, states, transitions
+
+    # Remove stale components
+    for comp_name in stale_names:
+        comp_data = components.pop(comp_name, None)
+        if comp_data:
+            # Delete icon file
+            icon_file = comp_data.get("icon_file", "")
+            if icon_file:
+                icon_path = app_dir / icon_file
+                if icon_path.exists():
+                    icon_path.unlink()
+
+    # Clean up states
+    deleted_states = set()
+    for state_id, state_data in list(states.items()):
+        defining = state_data.get("defining_components", [])
+        if defining:
+            cleaned = [c for c in defining if c not in stale_names]
+            if not cleaned:
+                deleted_states.add(state_id)
+                del states[state_id]
+            else:
+                state_data["defining_components"] = cleaned
+
+        # Also clean up "visible" lists if present
+        visible = state_data.get("visible", [])
+        if visible:
+            state_data["visible"] = [v for v in visible if v not in stale_names]
+
+    # Clean up transitions referencing deleted states
+    for key in list(transitions.keys()):
+        t = transitions[key]
+        if t.get("from_state") in deleted_states or t.get("to_state") in deleted_states:
+            del transitions[key]
+
+    if stale_names:
+        print(f"  🧹 Forgot {len(stale_names)} stale components: {', '.join(sorted(stale_names)[:5])}")
+        if deleted_states:
+            print(f"  🧹 Removed {len(deleted_states)} empty states")
+
+    return components, states, transitions
+
+
+# ═══════════════════════════════════════════
+# State identification by components (Phase 3)
+# ═══════════════════════════════════════════
+
+def _jaccard(set_a, set_b):
+    """Jaccard similarity between two sets."""
+    if not set_a and not set_b:
+        return 1.0
+    if not set_a or not set_b:
+        return 0.0
+    intersection = len(set_a & set_b)
+    union = len(set_a | set_b)
+    return intersection / union if union > 0 else 0.0
+
+
+def identify_or_create_state(states, detected_components, components_data, description=None):
+    """Match detected components against known states, or create a new one.
+
+    1. Filter detected components to stable ones (seen_count >= 2).
+    2. Compare stable_set against each state's defining_components via Jaccard.
+    3. If best Jaccard > 0.7 → match that state, update visit_count & last_seen.
+    4. Otherwise → create a new state with ID = s_ + 6-char hex hash.
+
+    Args:
+        states: states dict
+        detected_components: set of component names detected this round
+        components_data: full components dict (for checking seen_count)
+        description: optional description for new states
+
+    Returns: (state_id, updated_states_dict)
+    """
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
+
+    # Filter to stable components (seen at least twice)
+    stable_set = set()
+    for name in detected_components:
+        comp = components_data.get(name, {})
+        if comp.get("seen_count", 0) >= 2:
+            stable_set.add(name)
+
+    if not stable_set:
+        # No stable components yet — skip state identification
+        return None, states
+
+    # Find best matching state
+    best_state_id = None
+    best_jaccard = 0.0
+
+    for state_id, state_data in states.items():
+        defining = set(state_data.get("defining_components", []))
+        if not defining:
+            continue
+        j = _jaccard(stable_set, defining)
+        if j > best_jaccard:
+            best_jaccard = j
+            best_state_id = state_id
+
+    if best_jaccard > 0.7 and best_state_id:
+        # Match — update existing state
+        states[best_state_id]["last_seen"] = now
+        states[best_state_id]["visit_count"] = states[best_state_id].get("visit_count", 0) + 1
+        return best_state_id, states
+
+    # No match — create new state
+    import hashlib
+    hash_input = "|".join(sorted(stable_set))
+    state_hash = hashlib.md5(hash_input.encode()).hexdigest()[:6]
+    new_id = f"s_{state_hash}"
+
+    # Avoid collision
+    while new_id in states:
+        state_hash = hashlib.md5((hash_input + new_id).encode()).hexdigest()[:6]
+        new_id = f"s_{state_hash}"
+
+    states[new_id] = {
+        "name": description or f"state_{state_hash}",
+        "description": description,
+        "defining_components": sorted(stable_set),
+        "first_seen": now,
+        "last_seen": now,
+        "visit_count": 1,
+    }
+
+    return new_id, states
+
+
+def merge_similar_states(states, transitions, threshold=0.85):
+    """Merge states with highly similar defining_components.
+
+    For each pair of states with Jaccard > threshold:
+    - Keep the state with higher visit_count
+    - Merge defining_components (union)
+    - Update all transition references from merged state to kept state
+    - Delete merged state
+
+    Args:
+        states: states dict
+        transitions: transitions dict (keyed by from|action|to)
+        threshold: Jaccard threshold for merging (default 0.85)
+
+    Returns: (states, transitions)
+    """
+    merged_any = True
+    while merged_any:
+        merged_any = False
+        state_ids = list(states.keys())
+        for i in range(len(state_ids)):
+            if state_ids[i] not in states:
+                continue
+            for j in range(i + 1, len(state_ids)):
+                if state_ids[j] not in states:
+                    continue
+                s1 = states[state_ids[i]]
+                s2 = states[state_ids[j]]
+                set1 = set(s1.get("defining_components", []))
+                set2 = set(s2.get("defining_components", []))
+                if not set1 or not set2:
+                    continue
+                j_sim = _jaccard(set1, set2)
+                if j_sim > threshold:
+                    # Merge: keep higher visit_count
+                    keep_id = state_ids[i] if s1.get("visit_count", 0) >= s2.get("visit_count", 0) else state_ids[j]
+                    remove_id = state_ids[j] if keep_id == state_ids[i] else state_ids[i]
+                    
+                    # Merge defining_components (union)
+                    states[keep_id]["defining_components"] = sorted(set1 | set2)
+                    states[keep_id]["visit_count"] = (
+                        states[keep_id].get("visit_count", 0) + states[remove_id].get("visit_count", 0)
+                    )
+                    
+                    # Update transition references
+                    new_transitions = {}
+                    for key, t in transitions.items():
+                        from_s = t["from_state"]
+                        to_s = t["to_state"]
+                        if from_s == remove_id:
+                            from_s = keep_id
+                        if to_s == remove_id:
+                            to_s = keep_id
+                        new_key = f"{from_s}|{t['action']}|{to_s}"
+                        if new_key in new_transitions:
+                            # Merge counts
+                            new_transitions[new_key]["count"] += t.get("count", 1)
+                            if t.get("last_used", "") > new_transitions[new_key].get("last_used", ""):
+                                new_transitions[new_key]["last_used"] = t["last_used"]
+                        else:
+                            new_transitions[new_key] = {
+                                "from_state": from_s,
+                                "action": t["action"],
+                                "to_state": to_s,
+                                "count": t.get("count", 1),
+                                "last_used": t.get("last_used"),
+                                "success_rate": t.get("success_rate", 1.0),
+                            }
+                    transitions = new_transitions
+                    
+                    # Remove merged state
+                    del states[remove_id]
+                    merged_any = True
+                    print(f"  🔗 Merged state '{remove_id}' into '{keep_id}' (Jaccard={j_sim:.2f})")
+                    break  # restart inner loop
+            if merged_any:
+                break  # restart outer loop
+
+    return states, transitions
+
+
 # Tracker integration (auto-tick operations when tracker is active)
 _TRACKER_STATE = SKILL_DIR / "skills" / "gui-report" / "scripts" / ".tracker_state.json"
 
@@ -309,20 +751,43 @@ def get_domain_from_url(url):
 
 
 def load_profile(app_name):
-    """Load app profile (component registry + click graph states)."""
+    """Load app profile from split files (meta/components/states/transitions).
+
+    Automatically migrates old profile.json if found.
+    Returns a backwards-compatible dict with components, states, transitions.
+    """
     app_dir = get_app_dir(app_name)
-    profile_path = app_dir / "profile.json"
-    if profile_path.exists():
-        with open(profile_path) as f:
-            return json.load(f)
-    return {
-        "app": app_name,
-        "components": {},  # name -> {type, rel_x, rel_y, icon_file, label, ...}
-        "states": {},      # state_name -> {visible: [...], trigger, trigger_pos, disappeared, description}
-        "transitions": [],  # [{from: state, click: component, to: state, count: N}, ...]
-        "last_updated": None,
-        "window_size": None,
+
+    # Auto-migrate old format
+    migrate_profile_if_needed(app_dir)
+
+    meta = load_meta(app_dir)
+    components = load_components(app_dir)
+    states = load_states(app_dir)
+    transitions_dict = load_transitions(app_dir)
+
+    # Build compatible dict
+    profile = {
+        "app": meta.get("app", app_name),
+        "components": components,
+        "states": states,
+        "transitions": transitions_dict,  # Now a dict, not a list
+        "last_updated": meta.get("last_updated"),
+        "window_size": meta.get("window_size"),
     }
+    # Carry over extra meta fields for backwards compat
+    if meta.get("domain"):
+        profile["domain"] = meta["domain"]
+    if meta.get("img_size"):
+        profile["img_size"] = meta["img_size"]
+    if meta.get("retina_img_size"):
+        profile["retina_img_size"] = meta["retina_img_size"]
+    if meta.get("url"):
+        profile["url"] = meta["url"]
+    if meta.get("pages"):
+        profile["pages"] = meta["pages"]
+
+    return profile
 
 
 def _find_nearest_text(icon_el, text_elements, max_dist=60):
@@ -552,11 +1017,40 @@ def save_state(app_name, state_name, visible_texts, trigger=None, trigger_pos=No
 
 
 def save_profile(app_name, profile):
-    """Save app profile."""
+    """Save app profile to split files (meta/components/states/transitions).
+
+    Accepts the same dict structure as before but writes to independent files.
+    """
     app_dir = get_app_dir(app_name)
-    profile["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
-    with open(app_dir / "profile.json", "w") as f:
-        json.dump(profile, f, indent=2, ensure_ascii=False)
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
+    profile["last_updated"] = now
+
+    # --- meta.json ---
+    meta = load_meta(app_dir)
+    meta["app"] = profile.get("app", app_name)
+    meta["last_updated"] = now
+    if profile.get("domain"):
+        meta["domain"] = profile["domain"]
+    if profile.get("img_size"):
+        meta["img_size"] = profile["img_size"]
+    if profile.get("retina_img_size"):
+        meta["retina_img_size"] = profile["retina_img_size"]
+    if profile.get("window_size"):
+        meta["window_size"] = profile["window_size"]
+    if profile.get("url"):
+        meta["url"] = profile["url"]
+    if profile.get("pages"):
+        meta["pages"] = profile["pages"]
+    save_meta(app_dir, meta)
+
+    # --- components.json ---
+    save_components(app_dir, profile.get("components", {}))
+
+    # --- states.json ---
+    save_states(app_dir, profile.get("states", {}))
+
+    # --- transitions.json ---
+    save_transitions(app_dir, profile.get("transitions", {}))
 
 
 def identify_state_by_components(app_name, visible_components):
@@ -625,6 +1119,7 @@ def record_transition(app_name, from_state, click_component, to_state):
 def confirm_transitions(app_name):
     """Commit all pending transitions to profile. Call after workflow succeeds.
     
+    Transitions stored as dict with key = from_state|action|to_state.
     Returns: number of transitions committed.
     """
     pending = _pending_transitions.pop(app_name, [])
@@ -634,22 +1129,26 @@ def confirm_transitions(app_name):
         return 0
     
     profile = load_profile(app_name)
-    if "transitions" not in profile:
-        profile["transitions"] = []
+    if "transitions" not in profile or not isinstance(profile["transitions"], dict):
+        profile["transitions"] = {}
     
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
     committed = 0
     for from_s, click, to_s in pending:
-        # Check if exists
-        found = False
-        for t in profile["transitions"]:
-            if t["from"] == from_s and t["click"] == click and t["to"] == to_s:
-                t["count"] = t.get("count", 1) + 1
-                found = True
-                break
-        if not found:
-            profile["transitions"].append({
-                "from": from_s, "click": click, "to": to_s, "count": 1,
-            })
+        action = f"click:{click}"
+        key = f"{from_s}|{action}|{to_s}"
+        if key in profile["transitions"]:
+            profile["transitions"][key]["count"] = profile["transitions"][key].get("count", 1) + 1
+            profile["transitions"][key]["last_used"] = now
+        else:
+            profile["transitions"][key] = {
+                "from_state": from_s,
+                "action": action,
+                "to_state": to_s,
+                "count": 1,
+                "last_used": now,
+                "success_rate": 1.0,
+            }
         committed += 1
     
     # Also commit pending states
@@ -681,13 +1180,14 @@ def get_pending_transitions(app_name):
 def find_path(app_name, from_state, to_state):
     """BFS to find shortest click path between two states.
     
-    Returns: list of (click_component, next_state) tuples, or None if no path.
+    Transitions are now stored as a dict (key=from|action|to).
+    Returns: list of (action, next_state) tuples, or None if no path.
     
     Example: find_path("WeChat", "contacts_page", "宋文涛_chat")
-    → [("chat_tab", "chat_page"), ("宋文涛", "宋文涛_chat")]
+    → [("click:chat_tab", "chat_page"), ("click:宋文涛", "宋文涛_chat")]
     """
     profile = load_profile(app_name)
-    transitions = profile.get("transitions", [])
+    transitions = profile.get("transitions", {})
     
     if not transitions:
         return None
@@ -695,13 +1195,15 @@ def find_path(app_name, from_state, to_state):
     if from_state == to_state:
         return []
     
-    # Build adjacency: state -> [(click, to_state), ...]
+    # Build adjacency: state -> [(action, to_state), ...]
     graph = {}
-    for t in transitions:
-        src = t["from"]
+    for t in transitions.values():
+        src = t.get("from_state", "")
+        action = t.get("action", "")
+        dest = t.get("to_state", "")
         if src not in graph:
             graph[src] = []
-        graph[src].append((t["click"], t["to"]))
+        graph[src].append((action, dest))
     
     # BFS
     from collections import deque
@@ -710,12 +1212,12 @@ def find_path(app_name, from_state, to_state):
     
     while queue:
         current, path = queue.popleft()
-        for click, next_state in graph.get(current, []):
+        for action, next_state in graph.get(current, []):
             if next_state == to_state:
-                return path + [(click, next_state)]
+                return path + [(action, next_state)]
             if next_state not in visited:
                 visited.add(next_state)
-                queue.append((next_state, path + [(click, next_state)]))
+                queue.append((next_state, path + [(action, next_state)]))
     
     return None  # No path found
 
@@ -723,10 +1225,13 @@ def find_path(app_name, from_state, to_state):
 def get_transitions(app_name):
     """Get all recorded transitions for an app.
     
-    Returns: list of {from, click, to, count} dicts.
+    Returns: list of transition dicts (from transitions dict values).
     """
     profile = load_profile(app_name)
-    return profile.get("transitions", [])
+    transitions = profile.get("transitions", {})
+    if isinstance(transitions, dict):
+        return list(transitions.values())
+    return transitions  # legacy list format
 
 
 def save_component_icon(app_name, component_name, img, bbox, retina_scale=2):
@@ -1161,15 +1666,16 @@ def learn_site(app_name="Google Chrome", page_name="main"):
 
     # Save to site directory
     site_dir = get_site_dir(app_name, domain)
-    profile_path = site_dir / "profile.json"
-    if profile_path.exists():
-        with open(profile_path) as f:
-            profile = json.load(f)
-    else:
-        profile = {"domain": domain, "url": url, "components": {},
-                    "pages": {}, "last_updated": None}
 
-    profile["window_size"] = [win_w, win_h]
+    # Auto-migrate old profile.json if present
+    migrate_profile_if_needed(site_dir)
+
+    meta = load_meta(site_dir)
+    components = load_components(site_dir)
+
+    meta["domain"] = domain
+    meta["url"] = url
+    meta["window_size"] = [win_w, win_h]
     img = cv2.imread(img_path)
 
     # Save elements (same logic as learn_app but to site dir)
@@ -1192,7 +1698,7 @@ def learn_site(app_name="Google Chrome", page_name="main"):
 
         # Dedup by position
         is_new = True
-        for existing_name, existing in profile["components"].items():
+        for existing_name, existing in components.items():
             if (abs(existing.get("rel_x", 0) - el["cx"] // 2) < 15 and
                 abs(existing.get("rel_y", 0) - el["cy"] // 2) < 15):
                 is_new = False
@@ -1222,20 +1728,24 @@ def learn_site(app_name="Google Chrome", page_name="main"):
 
         rel_x = el["cx"] // 2
         rel_y = el["cy"] // 2
+        now = time.strftime("%Y-%m-%d %H:%M:%S")
 
-        profile["components"][comp_name] = {
+        components[comp_name] = {
             "type": el["type"], "source": el.get("source", "unknown"),
             "rel_x": rel_x, "rel_y": rel_y,
             "w": el["w"] // 2, "h": el["h"] // 2,
             "icon_file": f"components/{safe_name}.png",
             "label": el.get("label"), "confidence": el.get("confidence", 0),
-            "page": page_name, "learned_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "page": page_name, "learned_at": now,
+            "last_seen": now, "seen_count": 1, "consecutive_misses": 0,
         }
         page_components.append(comp_name)
         if is_new:
             new_count += 1
 
-    profile["pages"][page_name] = {
+    if "pages" not in meta:
+        meta["pages"] = {}
+    meta["pages"][page_name] = {
         "components": page_components,
         "learned_at": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
@@ -1245,9 +1755,9 @@ def learn_site(app_name="Google Chrome", page_name="main"):
     ui_detector.annotate_image(img_path, all_elements,
                                 str(site_dir / f"pages/{page_name}_annotated.jpg"))
 
-    profile["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
-    with open(profile_path, "w") as f:
-        json.dump(profile, f, indent=2, ensure_ascii=False)
+    meta["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    save_meta(site_dir, meta)
+    save_components(site_dir, components)
 
     print(f"  💾 Saved {len(page_components)} components ({new_count} new, {dup_count} dups)")
     print(f"  📁 {site_dir}")
@@ -1304,22 +1814,26 @@ def learn_from_screenshot(img_path, domain=None, app_name="chromium", page_name=
     else:
         save_dir = get_app_dir(app_name)
 
-    # Load or init profile
-    profile_path = save_dir / "profile.json"
-    if profile_path.exists():
-        with open(profile_path) as f:
-            profile = json.load(f)
-    else:
-        profile = {"app": app_name, "domain": domain, "components": {},
-                   "states": {}, "transitions": [], "last_updated": None}
+    # Auto-migrate old format
+    migrate_profile_if_needed(save_dir)
 
-    profile["img_size"] = [img_w, img_h]
+    # Load split files
+    meta = load_meta(save_dir)
+    components = load_components(save_dir)
+    states = load_states(save_dir)
+    transitions = load_transitions(save_dir)
+
+    meta["app"] = app_name
+    if domain:
+        meta["domain"] = domain
+    meta["img_size"] = [img_w, img_h]
 
     icons_dir = save_dir / "components"
     page_components = []
     new_count = 0
     dup_count = 0
     skip_count = 0
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
 
     for el in all_elements:
         # Filter: skip tiny elements
@@ -1340,9 +1854,9 @@ def learn_from_screenshot(img_path, domain=None, app_name="chromium", page_name=
                 ry = el["cy"] // scale
                 comp_name = f"unlabeled_{rx}_{ry}"
 
-        # Dedup by position against existing profile
+        # Dedup by position against existing components
         is_new = True
-        for existing_name, existing in profile["components"].items():
+        for existing_name, existing in components.items():
             if (abs(existing.get("rel_x", 0) - el["cx"] // scale) < 15 and
                 abs(existing.get("rel_y", 0) - el["cy"] // scale) < 15):
                 is_new = False
@@ -1374,7 +1888,7 @@ def learn_from_screenshot(img_path, domain=None, app_name="chromium", page_name=
         rel_x = el["cx"] // scale
         rel_y = el["cy"] // scale
 
-        profile["components"][comp_name] = {
+        components[comp_name] = {
             "type": el["type"],
             "source": el.get("source", "detection"),
             "rel_x": rel_x, "rel_y": rel_y,
@@ -1383,7 +1897,8 @@ def learn_from_screenshot(img_path, domain=None, app_name="chromium", page_name=
             "label": el.get("label"),
             "confidence": el.get("confidence", 0),
             "page": page_name,
-            "learned_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "learned_at": now,
+            "last_seen": now, "seen_count": 1, "consecutive_misses": 0,
         }
         page_components.append(comp_name)
         if is_new:
@@ -1401,19 +1916,38 @@ def learn_from_screenshot(img_path, domain=None, app_name="chromium", page_name=
     except Exception:
         pass
 
-    # Update profile
-    if "pages" not in profile:
-        profile["pages"] = {}
-    profile["pages"][page_name] = {
-        "components": page_components,
-        "learned_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-    }
-    profile["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    # --- Phase 2: Component activity tracking + forgetting ---
+    detected_names = set(page_components)
+    components = update_component_activity(components, detected_names, now=now)
+    meta["detect_count"] = meta.get("detect_count", 0) + 1
+    components, states, transitions = forget_stale_components(
+        save_dir, components, meta, states, transitions
+    )
 
-    with open(profile_path, "w") as f:
-        json.dump(profile, f, indent=2, ensure_ascii=False)
+    # --- Phase 3: State identification + merging ---
+    current_state_id, states = identify_or_create_state(
+        states, detected_names, components, description=page_name
+    )
+    states, transitions = merge_similar_states(states, transitions)
+
+    # Update meta
+    if "pages" not in meta:
+        meta["pages"] = {}
+    meta["pages"][page_name] = {
+        "components": page_components,
+        "learned_at": now,
+    }
+    meta["last_updated"] = now
+
+    # Save all split files
+    save_meta(save_dir, meta)
+    save_components(save_dir, components)
+    save_states(save_dir, states)
+    save_transitions(save_dir, transitions)
 
     print(f"  💾 Saved {len(page_components)} components ({new_count} new, {dup_count} dups, {skip_count} skipped)")
+    if current_state_id:
+        print(f"  📊 State: {current_state_id}")
     print(f"  📁 {save_dir}")
     return {"saved": len(page_components), "new": new_count, "components": page_components}
 
@@ -1483,54 +2017,58 @@ def record_page_transition(before_img_path, after_img_path, click_label, click_p
     print(f"  📊 Text: {len(persisted)} persisted, {len(appeared)} appeared, {len(disappeared)} disappeared")
     print(f"  📊 Icons: {before_icon_count} → {after_icon_count} (delta: {icon_delta:+d})")
 
-    # Load profile and save transition
+    # Load split files
     if domain:
         save_dir = get_site_dir(app_name, domain)
     else:
         save_dir = get_app_dir(app_name)
 
-    profile_path = save_dir / "profile.json"
-    if profile_path.exists():
-        with open(profile_path) as f:
-            profile = json.load(f)
-    else:
-        profile = {"app": app_name, "domain": domain, "components": {},
-                   "states": {}, "transitions": [], "last_updated": None}
+    # Auto-migrate old format
+    migrate_profile_if_needed(save_dir)
+
+    meta = load_meta(save_dir)
+    states = load_states(save_dir)
+    transitions = load_transitions(save_dir)
+
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
 
     # State names
     from_state = f"before_{click_label}"
     to_state = f"after_{click_label}"
 
     # Save states
-    if "states" not in profile:
-        profile["states"] = {}
-    profile["states"][from_state] = {
+    states[from_state] = {
         "visible_texts": sorted(list(before_texts))[:50],  # Cap to prevent bloat
     }
-    profile["states"][to_state] = {
+    states[to_state] = {
         "visible_texts": sorted(list(after_texts))[:50],
         "appeared": sorted(list(appeared))[:20],
         "disappeared": sorted(list(disappeared))[:20],
     }
 
-    # Save transition
-    if "transitions" not in profile:
-        profile["transitions"] = []
+    # Save transition (dict-based, deduped by key)
+    action = f"click:{click_label}"
+    key = f"{from_state}|{action}|{to_state}"
+    if key in transitions:
+        transitions[key]["count"] = transitions[key].get("count", 1) + 1
+        transitions[key]["last_used"] = now
+    else:
+        transitions[key] = {
+            "from_state": from_state,
+            "action": action,
+            "to_state": to_state,
+            "count": 1,
+            "last_used": now,
+            "success_rate": 1.0,
+            "click_pos": list(click_pos),
+            "appeared_count": len(appeared),
+            "disappeared_count": len(disappeared),
+        }
 
-    transition = {
-        "from": from_state,
-        "click": click_label,
-        "click_pos": list(click_pos),
-        "to": to_state,
-        "appeared_count": len(appeared),
-        "disappeared_count": len(disappeared),
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
-    }
-    profile["transitions"].append(transition)
-    profile["last_updated"] = time.strftime("%Y-%m-%d %H:%M:%S")
-
-    with open(profile_path, "w") as f:
-        json.dump(profile, f, indent=2, ensure_ascii=False)
+    meta["last_updated"] = now
+    save_meta(save_dir, meta)
+    save_states(save_dir, states)
+    save_transitions(save_dir, transitions)
 
     print(f"  🔄 Transition: {from_state} → [{click_label}] → {to_state}")
     return {
@@ -2718,7 +3256,11 @@ def main():
         else:
             print(f"State transitions for {args.app}:")
             for t in transitions:
-                print(f"  {t['from']} --{t['click']}--> {t['to']} (×{t.get('count',1)})")
+                from_s = t.get("from_state", t.get("from", "?"))
+                action = t.get("action", f"click:{t.get('click', '?')}")
+                to_s = t.get("to_state", t.get("to", "?"))
+                count = t.get("count", 1)
+                print(f"  {from_s} --{action}--> {to_s} (×{count})")
 
     elif args.command == "path":
         from_s = getattr(args, 'from_state', None) or args.component  # reuse --component for from
@@ -2730,8 +3272,8 @@ def main():
             print(f"Already at '{to_s}'")
         else:
             print(f"Path from '{from_s}' to '{to_s}':")
-            for click, next_state in path:
-                print(f"  → click '{click}' → {next_state}")
+            for action, next_state in path:
+                print(f"  → {action} → {next_state}")
 
 
     elif args.command == "click_at":

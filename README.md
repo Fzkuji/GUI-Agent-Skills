@@ -36,14 +36,12 @@
 
 ## 🔥 News
 
-- **[03/22/2026]** 🏆 **OSWorld benchmark**: **24/24 Chrome tasks passed (100%)**, including external website tasks. [See results →](benchmarks/osworld/)
-- **[03/22/2026]** v0.6.0 — **Vision vs Command boundary + unified action flow**: Clear definition of three visual methods (OCR/GPA-GUI-Detector/image tool) and when to use each; action and memory saving merged into one atomic operation (detect→match→execute→diff→save); browser per-website nested memory structure.
-- **[03/21/2026]** v0.5.0 — **Cross-platform detection**: GPA-GUI-Detector works on any OS screenshot (Linux, Windows, mobile). First OSWorld evaluation on Ubuntu VM.
-- **[03/19/2026]** v0.4.0 — **Workflow memory + async polling**: Saved workflows auto-matched by LLM intent; `wait_for` command (template-match polling, no blind clicks); mandatory timing & token delta reporting; multi-window fix (selects largest window).
-- **[03/19/2026]** v0.3.0 — **Click-graph state architecture**: UI modeled as a graph of states; each click creates a new state entry; state identification via OCR text matching. Removed pages/regions/overlays complexity.
-- **[03/17/2026]** v0.2.0 — Workflow-based revise, event-driven polling, mandatory operation protocol (observe→verify→act→confirm), per-app visual memory with auto-cleanup.
-- **[03/16/2026]** v0.1.0 — GPA-GUI-Detector integration, Apple Vision OCR, template matching, browser automation, per-site memory.
-- **[03/10/2026]** v0.0.1 — Initial release: WeChat/Discord/Telegram automation, app profiles, fuzzy app matching.
+- **[03/23/2026]** 🏆 **OSWorld benchmark**: **45.0/46 Chrome tasks (97.8%)**. [See results →](benchmarks/osworld/)
+- **[03/23/2026]** v0.7.0 — **Memory refactor**: Split storage (components/states/transitions), component forgetting mechanism, state merging by Jaccard similarity, transition dedup.
+- **[03/22/2026]** v0.6.0 — **Unified action flow**: Three visual methods (OCR/GPA-GUI-Detector/image tool) with clear boundaries; detect→match→execute→diff→save as one atomic operation.
+- **[03/21/2026]** v0.5.0 — **Cross-platform detection**: GPA-GUI-Detector on any OS screenshot. First OSWorld evaluation on Ubuntu VM.
+- **[03/19/2026]** v0.3.0–v0.4.0 — Click-graph state architecture, workflow memory, async polling.
+- **[03/10/2026]** v0.0.1–v0.2.0 — Initial release through template matching, per-app visual memory, browser per-site memory.
 
 ## 💬 What It Looks Like
 
@@ -206,30 +204,22 @@ Then just chat with your OpenClaw agent — it reads `SKILL.md` and handles ever
 ## 🧠 How It Works
 
 <p align="center">
-  <img src="assets/pipeline.svg" alt="GUIClaw Pipeline" width="600" />
+  <img src="assets/architecture.png" alt="GUIClaw Architecture" width="700" />
 </p>
 
-### Learn Once, Match Forever
+The architecture has three layers:
 
-**First time** — GPA-GUI-Detector detects everything (~4 seconds):
-```
-🔍 GPA-GUI-Detector: 43 icons    📝 OCR: 34 text elements    🔗 → 24 fixed UI components saved
-```
+- **Orchestration** — `SKILL.md` routes to sub-skills (`gui-observe`, `gui-act`, `gui-learn`, `gui-memory`, `gui-workflow`). A mandatory safety protocol (INTENT → OBSERVE → VERIFY → ACT → CONFIRM → REPORT) is enforced at every step.
+- **Core scripts** — `agent.py` is the unified entry point. `app_memory.py` handles visual memory (learn, detect, match, verify). `ui_detector.py` runs GPA-GUI-Detector (YOLO) + Apple Vision OCR.
+- **Memory** — Split storage: `components.json`, `states.json`, `transitions.json` per app/site. Components auto-forget after consecutive misses. States defined by component sets, auto-merged by Jaccard similarity.
 
-**Every time after** — instant template match (~0.3 seconds):
-```
-✅ search_bar_icon (202,70) conf=1.0
-✅ emoji_button (354,530) conf=1.0
-✅ sidebar_contacts (85,214) conf=1.0
-```
+### Detection Stack
 
-## 🔍 Detection Stack
-
-| Detector | Speed | Finds | Why |
-|----------|-------|-------|-----|
-| **[GPA-GUI-Detector](https://huggingface.co/Salesforce/GPA-GUI-Detector)** | 0.3s | Icons, buttons | Finds gray-on-gray icons others miss |
-| **Apple Vision OCR** | 1.6s | Text (CN + EN) | Best Chinese OCR, pixel-accurate |
-| **Template Match** | 0.3s | Known components | 100% accuracy after first learn |
+| Detector | Speed | Finds |
+|----------|-------|-------|
+| **[GPA-GUI-Detector](https://huggingface.co/Salesforce/GPA-GUI-Detector)** | ~0.3s | Icons, buttons, input fields |
+| **Apple Vision OCR** | ~1.6s | Text elements (CN + EN) |
+| **Template Match** | ~0.3s | Known components (after first learn) |
 
 ## 📁 App Visual Memory
 
