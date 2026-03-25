@@ -1,14 +1,12 @@
 <div align="center">
   <img src="assets/banner.png" alt="GUI Agent Skills" width="100%" />
 
-  <h1>🦞 GUI Agent Skills</h1>
+  <br />
 
   <p>
-    <strong>See the screen. Learn the UI. Click the right thing.</strong>
+    <strong>Your AI can finally see the screen — and use it like a human.</strong>
     <br />
-    Vision-driven desktop automation skills for <a href="https://github.com/openclaw/openclaw">OpenClaw</a>.
-    <br />
-    <em>GUI Agent Skills is an OpenClaw skill, not a standalone API, CLI, or Python library.</em>
+    <sub>Visual memory • One-shot UI learning • Zero hardcoded selectors</sub>
   </p>
 
   <p>
@@ -23,6 +21,7 @@
     <img src="https://img.shields.io/badge/Detection-GPA--GUI--Detector-green" />
     <img src="https://img.shields.io/badge/OCR-Apple_Vision-blue" />
     <img src="https://img.shields.io/badge/License-MIT-yellow" />
+    <img src="https://img.shields.io/badge/OSWorld_Chrome-93.5%25-brightgreen" />
   </p>
 </div>
 
