@@ -53,14 +53,14 @@ GUI Agent Skills is organized as a **main skill** (`SKILL.md`) that orchestrates
 ### **7 Skills Powering Visual GUI Automation**
 
 | Skill | Description |
-|:------|:------------|
-| 👁️ **[gui-observe](skills/gui-observe/)** | Screenshot capture, OCR text extraction, current state identification. The agent's eyes — always runs first before any action. |
-| 🎓 **[gui-learn](skills/gui-learn/)** | First-contact app learning — detect all UI components via GPA-GUI-Detector, have the VLM label each one, filter duplicates, save to visual memory. |
-| 🖱️ **[gui-act](skills/gui-act/)** | Unified action execution — detect → match → execute → diff → save as one atomic flow. Handles clicks, typing, and all UI interactions. |
-| 💾 **[gui-memory](skills/gui-memory/)** | Visual memory management — split storage (components/states/transitions), browser site isolation, activity-based forgetting, state merging. |
-| 🔄 **[gui-workflow](skills/gui-workflow/)** | State graph navigation and workflow automation — record successful task sequences, replay with tiered verification, BFS path planning. |
-| 📊 **[gui-report](skills/gui-report/)** | Task performance tracking — automatic timing, token usage, success/failure logging for every GUI operation. |
-| ⚙️ **[gui-setup](skills/gui-setup/)** | First-time setup on a new machine — install dependencies, download models, configure accessibility permissions. |
+|:---|:---|
+| 👁️&nbsp;**[gui‑observe](skills/gui-observe/)** | Screenshot capture, OCR text extraction, current state identification. The agent's eyes — always runs first before any action. |
+| 🎓&nbsp;**[gui‑learn](skills/gui-learn/)** | First-contact app learning — detect all UI components via GPA-GUI-Detector, have the VLM label each one, filter duplicates, save to visual memory. |
+| 🖱️&nbsp;**[gui‑act](skills/gui-act/)** | Unified action execution — detect → match → execute → diff → save as one atomic flow. Handles clicks, typing, and all UI interactions. |
+| 💾&nbsp;**[gui‑memory](skills/gui-memory/)** | Visual memory management — split storage (components/states/transitions), browser site isolation, activity-based forgetting, state merging. |
+| 🔄&nbsp;**[gui‑workflow](skills/gui-workflow/)** | State graph navigation and workflow automation — record successful task sequences, replay with tiered verification, BFS path planning. |
+| 📊&nbsp;**[gui‑report](skills/gui-report/)** | Task performance tracking — automatic timing, token usage, success/failure logging for every GUI operation. |
+| ⚙️&nbsp;**[gui‑setup](skills/gui-setup/)** | First-time setup on a new machine — install dependencies, download models, configure accessibility permissions. |
 
 </div>
 
