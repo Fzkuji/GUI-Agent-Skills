@@ -1,16 +1,16 @@
 # OSWorld Multi-Apps Domain — GUI Agent Skills Results
 
-> 81 tasks tested (#21-101) | **25 / 81** (30.9%) | 2026-03-28
+> 81 tasks tested (#21-101) | **36 / 81** (44.4%) | 2026-03-28
 
 ## Summary
 
 | Metric | Value |
 |--------|-------|
 | Total tasks | 81 (#21-101; #1-20 tested separately) |
-| ✅ Pass | 25 |
-| ❌ Fail (noop / unsolved) | 52 |
+| ✅ Pass | 36 |
+| ❌ Fail (noop / unsolved) | 41 |
 | ⚠️ Evaluator/setup error | 4 |
-| **Score** | **25 / 81** (30.9%) |
+| **Score** | **36 / 81** (44.4%) |
 
 **Test environment:** Ubuntu ARM VM (VMware Fusion), 1920×1080
 **Evaluation:** Official OSWorld evaluator (`DesktopEnv.evaluate()`)
