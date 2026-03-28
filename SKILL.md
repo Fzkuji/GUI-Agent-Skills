@@ -276,6 +276,20 @@ If you forget, data is auto-saved next time tracker starts.
 7. **Watch for new dialogs/windows** — clicking a button may spawn a new dialog or window. After clicking, check if a new window appeared and handle it before continuing.
 8. **Every click uses `click_and_record` or `click_component`** — never raw `click_at()`. Every click must record a state transition.
 
+## Platform Detection
+
+Different platforms use different tools. Run `platforms/detect.py` to auto-detect:
+
+```bash
+python3 platforms/detect.py
+```
+
+Platform-specific guides:
+- **macOS**: `read {baseDir}/platforms/macos.md` — pynput, screencapture, Apple Vision OCR, Cmd shortcuts
+- **Linux**: `read {baseDir}/platforms/linux.md` — pyautogui/xdotool, scrot, wmctrl, Ctrl shortcuts
+
+When operating on a **remote machine** (VM, SSH), detect the remote platform and use its tools via the remote execution channel, while running OCR/detection locally on the host.
+
 ## Input Methods (platform_input.py)
 
 ```python
@@ -283,7 +297,7 @@ from platform_input import click_at, paste_text, key_press, key_combo, screensho
     activate_app, get_clipboard, set_clipboard, mouse_right_click
 ```
 
-No cliclick. No osascript for input. pynput only.
+No cliclick. No osascript for input. pynput only (macOS). For Linux, see `platforms/linux.md`.
 
 ## File Structure
 
@@ -297,6 +311,11 @@ gui-agent/
 │   ├── platform_input.py # Cross-platform input (pynput)
 │   ├── ui_detector.py    # GPA-GUI-Detector + OCR detection
 │   └── template_match.py # Legacy template matching
+├── platforms/            # Platform-specific guides (auto-detected)
+│   ├── detect.py         # Auto-detect OS + available tools
+│   ├── macos.md          # macOS: pynput, screencapture, Apple Vision
+│   ├── linux.md          # Linux: pyautogui, xdotool, wmctrl
+│   └── windows.md        # Windows (future)
 ├── memory/               # Visual memory (gitignored but ESSENTIAL)
 │   ├── apps/
 │   │   ├── <appname>/
