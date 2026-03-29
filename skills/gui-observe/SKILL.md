@@ -40,8 +40,8 @@ Use template matching instead of full detection:
 ## Coordinate System (Dual-Space)
 
 Two coordinate spaces:
-- **Detection space** = screencapture pixels (GPA, OCR, template match, cv2 crops)
-- **Click space** = OS logical pixels (pynput click_at, pyautogui, osascript bounds)
+- **Detection space** = screenshot pixels (GPA, OCR, template match, cv2 crops)
+- **Click space** = OS logical pixels (gui_action.py click)
 
 Mapping functions (in `ui_detector.py`):
 - `detect_to_click(x, y)` — detection → click
@@ -55,7 +55,7 @@ Scale is computed dynamically each time `detect_all()` runs via `refresh_screen_
 | detect_text | detection |
 | template_match raw | detection |
 | detect_all output | **click** |
-| pynput click_at | click |
+| gui_action.py click | click |
 | cv2 image crop | detection |
 
 - **Mac Retina**: detection space is 2× click space (e.g., 3024×1964 vs 1512×982)

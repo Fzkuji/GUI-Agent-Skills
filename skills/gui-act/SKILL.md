@@ -149,7 +149,7 @@ import pyautogui
 pyautogui.click(779, 187)
 ```
 
-**CRITICAL:** For local Mac, always use `click_and_record()` or `click_component()`, never raw `click_at()`.
+**CRITICAL:** Always use `gui_action.py click` (with appropriate --remote if needed), never raw platform-specific calls.
 
 ### Step 5: DETECT AGAIN (if needed)
 
@@ -253,16 +253,21 @@ Screenshot → template match against saved components → instant recognition
 Component not matching (conf < 0.8) = not on screen in its saved form.
 **Don't lower threshold.** Run `learn_from_screenshot()` on current page to discover what IS on screen.
 
-## Input Methods (platform_input.py)
+## Input Methods (gui_action.py)
 
-```python
-click_at(x, y)                    # Left click
-mouse_right_click(x, y)           # Right click
-paste_text("中文")                 # Clipboard + Cmd+V (CJK safe)
-type_text("hello")                # Direct typing (ASCII only)
-key_press("return")               # Single key
-key_combo("command", "v")         # Key combination
-screenshot("/tmp/check.png")      # Full screen capture
+All GUI operations go through `gui_action.py`. Add `--remote URL` for remote targets.
+
+```bash
+gui_action.py click X Y                   # Left click
+gui_action.py right_click X Y             # Right click
+gui_action.py type "text"                 # Type text (handles special chars)
+gui_action.py key enter                   # Single key (enter/tab/escape...)
+gui_action.py shortcut ctrl+s             # Key combination
+gui_action.py screenshot /tmp/s.png       # Screenshot
+gui_action.py focus "window title"        # Focus window
+gui_action.py close "window title"        # Close window
+gui_action.py list_windows                # List all windows
+# Remote: add --remote http://IP:PORT
 ```
 
 ---

@@ -42,7 +42,7 @@ python3 scripts/agent.py learn --app AppName
 
 **Important**: Components are cropped from full-screen screenshots so they match
 perfectly when doing full-screen template matching later. This is why `capture_window`
-uses screencapture (full screen) + crop, NOT `screencapture -l <windowID>`.
+uses full-screen screenshot + crop (via gui_action.py screenshot).
 
 `_find_nearest_text` is a hint, not truth — always verify by viewing the cropped image.
 
