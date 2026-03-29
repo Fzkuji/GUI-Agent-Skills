@@ -47,16 +47,6 @@ source ~/gui-agent-env/bin/activate
 pip install pyautogui opencv-python pillow requests
 ```
 
-### Remote VM (OSWorld or similar)
-
-The VM needs these pre-installed:
-```bash
-# On the VM:
-sudo apt install xdotool wmctrl
-pip install pyautogui
-# HTTP server at port 5000 (OSWorld provides this automatically)
-```
-
 ## OpenClaw Configuration
 
 Add to `~/.openclaw/openclaw.json`:
