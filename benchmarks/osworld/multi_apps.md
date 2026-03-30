@@ -81,7 +81,7 @@
 | 16 | `d9b7c649` | Extract 5 emails to report.xlsx | 1.0 | CLI | VM exec: mailbox parse → openpyxl |
 | 17 | `e135df7c` | Convert xlsx to HTML, view in Chrome | 1.0 | CLI | LO headless + CDP |
 | 18 | `ee9a3c83` | Convert ODS to CSV via terminal | 1.0 | ✅ GUI | Setup → screenshot → Doc Recovery dialog (Alt+D dismiss) → Alt+Tab to terminal → pyautogui.typewrite libreoffice --convert-to csv → silent fail (running instance) → retry with -env:UserInstallation → history -a → eval: use_terminal✅ + CSV 5001/5001✅ |
-| 19 | `f7dfbef3` | Convert .doc files to PDF | 1.0 | ⚠️ GUI attempted | Tried GUI but LO headless fails with running instance; used API |
+| 19 | `f7dfbef3` | Convert .doc files to PDF | 1.0 | ✅ GUI | VM reset → kill soffice + clear recovery → host HTTP server to transfer doc.tar.gz → extract 12 .doc → terminal typewrite `libreoffice --headless --convert-to pdf *.doc` → delete init_state extra PDFs → history -a → eval: history✅ + archive 12/12 PDF fuzz avg=0.9958✅ |
 | 20 | `f8cfa149` | Copy cell B6, search in Chrome | 1.0 | CLI | xlrd + CDP |
 | 21 | `6d72aad6` | Convert Impress to video (infeasible) | 1.0 | CLI | Infeasible task |
 | 22 | `f918266a` | Complete Python calculator code | 1.0 | CLI | sed + python3 |
