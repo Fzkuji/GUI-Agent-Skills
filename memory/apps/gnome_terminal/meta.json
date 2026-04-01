@@ -1,8 +1,8 @@
 {
   "app": "gnome_terminal",
   "domain": "",
-  "detect_count": 9,
-  "last_updated": "2026-04-01 01:40:16",
+  "detect_count": 10,
+  "last_updated": "2026-04-01 13:28:56",
   "img_size": [
     1920,
     922
@@ -259,6 +259,27 @@
         "unlabeled_33_884"
       ],
       "learned_at": "2026-04-01 01:40:14"
+    },
+    "force_quit_lo": {
+      "components": [
+        "Activilses",
+        "mM",
+        "-）",
+        "Activilies",
+        "unlabeled_34_132",
+        "unlabeled_34_201",
+        "unlabeled_35_268",
+        "unlabeled_33_336",
+        "unlabeled_34_405",
+        "unlabeled_32_473",
+        "unlabeled_33_540",
+        "unlabeled_33_609",
+        "unlabeled_33_675",
+        "unlabeled_34_744",
+        ">_",
+        "unlabeled_33_884"
+      ],
+      "learned_at": "2026-04-01 13:28:47"
     }
   }
 }
