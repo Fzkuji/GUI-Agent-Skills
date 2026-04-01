@@ -7,11 +7,11 @@
 | Metric | Value |
 |--------|-------|
 | Total tasks | 101 |
-| ✅ Verified (official eval) | 10 |
-| ⏳ Pending eval | 53 |
+| ✅ Verified (official eval) | 11 |
+| ⏳ Pending eval | 52 |
 | ❌ Blocked | 20 |
 | 🔲 Not yet attempted | 18 |
-| **Verified score** | **5.845/10 = 58.5%** |
+| **Verified score** | **6.845/11 = 62.2%** |
 
 > Scores are ONLY from OSWorld official evaluator (`desktop_env/evaluators/`).
 
@@ -35,7 +35,7 @@
 | 14 | `b52b40a5` | Merge PDFs | | |
 | 15 | `c867c42d` | Export TB contacts to CSV/XLSX | **0.0** | 导出30条但gold有60条，sqlite缺少vCard解析的字段 |
 | 16 | `d9b7c649` | Extract 5 emails to report.xlsx | **1.0** | mbox解析+openpyxl导出 |
-| 17 | `e135df7c` | Convert xlsx to HTML, view in Chrome | | |
+| 17 | `e135df7c` | Convert xlsx to HTML, view in Chrome | **1.0** | libreoffice --headless转换+CDP打开tab |
 | 18 | `ee9a3c83` | Convert ODS to CSV via terminal | | |
 | 19 | `f7dfbef3` | Convert .doc files to PDF | | |
 | 20 | `f8cfa149` | Copy cell B6, search in Chrome | | |
