@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "gui-agent": {
+      "command": "/Users/fzkuji/gui-actor-env/bin/python3",
+      "args": ["/Users/fzkuji/.openclaw/workspace/skills/gui-agent/harness_functions/mcp_server.py"]
+    }
+  }
+}
