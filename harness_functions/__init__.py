@@ -11,6 +11,9 @@ Two levels:
     High-level (hybrid: Python gathers data, LLM reasons):
         observe, learn, act, remember, navigate, verify
 
+    Meta (runtime function creation):
+        meta_create, meta_list, meta_call
+
 High-level functions call low-level functions internally.
 You can also call low-level functions directly for deterministic tasks.
 """
@@ -44,6 +47,16 @@ from harness_functions.functions import (
     verify, VerifyResult,
 )
 
+# Meta Agentic Functions
+from harness_functions.functions import (
+    meta_create,
+    meta_list,
+    meta_call,
+)
+
+# Global memory instance
+from harness_functions.functions import _memory
+
 __all__ = [
     # Low-level
     "take_screenshot", "ScreenshotResult",
@@ -62,4 +75,7 @@ __all__ = [
     "remember", "RememberResult",
     "navigate", "NavigateResult",
     "verify", "VerifyResult",
+    # Meta
+    "meta_create", "meta_list", "meta_call",
+    "_memory",
 ]

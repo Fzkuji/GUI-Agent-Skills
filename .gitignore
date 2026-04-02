@@ -11,6 +11,9 @@ memory/
 # But keep the harness memory module (code, not runtime data)
 !harness/memory/
 
+# Execution logs (Memory)
+logs/
+
 # Detection output
 detected/
 

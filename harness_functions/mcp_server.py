@@ -222,5 +222,50 @@ def get_state(app_name: str) -> dict:
     return result.model_dump()
 
 
+# ═══════════════════════════════════════════
+# Meta Agentic Functions (runtime creation)
+# ═══════════════════════════════════════════
+
+@mcp.tool()
+def meta_create(name: str, docstring: str, params: dict = None, returns: dict = None) -> dict:
+    """Create a new Agentic Function at runtime.
+
+    The function will use Python Runtime (screenshot, OCR) + Agentic Runtime (LLM)
+    to execute the docstring as instructions.
+
+    Args:
+        name: Function name (snake_case, e.g. "check_email")
+        docstring: Instructions for the LLM (this IS the function's logic)
+        params: Parameter definitions {"param_name": "description"}
+        returns: Return field definitions {"field_name": "type_description"}
+    """
+    from functions import meta_create as _meta_create
+    return _meta_create(
+        name=name,
+        docstring=docstring,
+        params=params or {},
+        returns=returns or {"result": "str"},
+    )
+
+
+@mcp.tool()
+def meta_list() -> dict:
+    """List all dynamically created Agentic Functions."""
+    from functions import meta_list as _meta_list
+    return _meta_list()
+
+
+@mcp.tool()
+def meta_call(name: str, **kwargs) -> dict:
+    """Call a dynamically created Agentic Function by name.
+
+    Args:
+        name: Name of the function to call
+        **kwargs: Arguments to pass to the function
+    """
+    from functions import meta_call as _meta_call
+    return _meta_call(name=name, **kwargs)
+
+
 if __name__ == "__main__":
     mcp.run()
