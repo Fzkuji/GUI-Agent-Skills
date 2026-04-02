@@ -1,17 +1,17 @@
 # OSWorld Multi-Apps Domain — GUI Agent Skills Results
 
-> 101 tasks total | Last updated: 2026-04-01 23:35 HKT
+> 101 tasks total | Last updated: 2026-04-02 16:45 HKT
 
 ## Current Status
 
 | Metric | Value |
 |--------|-------|
 | Total tasks | 101 |
-| ✅ Verified (official eval) | 24 |
-| ⏳ Pending eval | 39 |
+| ✅ Verified (official eval) | 25 |
+| ⏳ Pending eval | 38 |
 | ❌ Blocked | 20 |
 | 🔲 Not yet attempted | 18 |
-| **Verified score** | **18.443/24 = 76.8%** |
+| **Verified score** | **19.443/25 = 77.8%** |
 
 > Scores are ONLY from OSWorld official evaluator (`desktop_env/evaluators/`).
 
@@ -49,7 +49,7 @@
 | 28 | `acb0f96b` | Clone GitHub repo | **1.0** | git clone xlang-ai/instructor-embedding到~/，ls -R完全匹配gold |
 | 29 | `69acbb55` | Configure word embeddings | **1.0** | git clone + pip install -e . + pip install -r requirements.txt，import成功无Error |
 | 30 | `48d05431` | Install conda | **1.0** | 下载Miniconda3-aarch64安装+conda init bash，bashrc含conda initialize |
-| 31 | `68a25bd4` | Download paper + find citation | | |
+| 31 | `68a25bd4` | Download paper + find citation | **1.0** | 下载BERT PDF(arxiv)，识别TinyBERT引用了BERT，python-docx写ans.docx |
 | 32 | `eb303e01` | Insert speaker notes to PPTX | | |
 | 33 | `0c825995` | Environmental policy report | | |
 | 34 | `c7c1e4c3` | Collect professor emails | | |
