@@ -7,6 +7,7 @@ Session mode: summarize={"depth": 0, "siblings": 0}
 from __future__ import annotations
 
 import json
+from gui_harness.utils import parse_json
 
 from agentic import agentic_function
 from gui_harness.perception import screenshot, ocr
@@ -60,7 +61,7 @@ OCR text on screen:
     ])
 
     try:
-        result = _parse_json(reply)
+        result = parse_json(reply)
         result.setdefault("screenshot_path", img_path)
     except Exception:
         result = {
@@ -71,7 +72,7 @@ OCR text on screen:
     return result
 
 
-def _parse_json(reply: str) -> dict:
+def parse_json(reply: str) -> dict:
     text = reply.strip()
     if text.startswith("```"):
         lines = text.split("\n")

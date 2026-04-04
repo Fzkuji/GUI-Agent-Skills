@@ -11,6 +11,7 @@ orchestrates multiple sub-functions that each call exec() once.
 from __future__ import annotations
 
 import json
+from gui_harness.utils import parse_json
 
 from agentic import agentic_function
 
@@ -91,7 +92,7 @@ Step {step}/{max_steps}.{history_summary}"""
     ])
 
     try:
-        return _parse_json(reply)
+        return parse_json(reply)
     except Exception:
         # Parse failed — try to extract action from raw text
         reply_lower = reply.lower()
@@ -193,7 +194,7 @@ def execute_task(task: str, runtime=None, max_steps: int = 15) -> dict:
     }
 
 
-def _parse_json(reply: str) -> dict:
+def parse_json(reply: str) -> dict:
     text = reply.strip()
     if text.startswith("```"):
         lines = text.split("\n")

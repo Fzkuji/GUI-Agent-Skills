@@ -7,6 +7,7 @@ Session mode: summarize={"depth": 0, "siblings": 0}
 from __future__ import annotations
 
 import json
+from gui_harness.utils import parse_json
 import time
 
 from agentic import agentic_function
@@ -87,7 +88,7 @@ Detected UI elements:
     ])
 
     try:
-        data = _parse_json(reply)
+        data = parse_json(reply)
     except Exception:
         return {
             "action": action, "target": target,
@@ -143,7 +144,7 @@ Detected UI elements:
     return data
 
 
-def _parse_json(reply: str) -> dict:
+def parse_json(reply: str) -> dict:
     text = reply.strip()
     if text.startswith("```"):
         lines = text.split("\n")

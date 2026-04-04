@@ -7,6 +7,7 @@ Session mode: summarize={"depth": 0, "siblings": 0}
 from __future__ import annotations
 
 import json
+from gui_harness.utils import parse_json
 import sys
 from pathlib import Path
 
@@ -78,7 +79,7 @@ OCR text:
     ])
 
     try:
-        result = _parse_json(reply)
+        result = parse_json(reply)
         result.setdefault("app_name", app_name)
         result.setdefault("components_found", len(elements))
 
@@ -102,7 +103,7 @@ OCR text:
     return result
 
 
-def _parse_json(reply: str) -> dict:
+def parse_json(reply: str) -> dict:
     text = reply.strip()
     if text.startswith("```"):
         lines = text.split("\n")
