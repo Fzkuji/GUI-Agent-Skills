@@ -109,7 +109,14 @@ class GUIRuntime(Runtime):
         # Detect or use specified provider
         if provider:
             detected_provider = provider
-            detected_model = model or "default"
+            # Set sensible default model per provider
+            default_models = {
+                "openclaw": "default",
+                "claude-code": "sonnet",
+                "anthropic": "claude-sonnet-4-20250514",
+                "openai": "gpt-4o",
+            }
+            detected_model = model or default_models.get(provider, "default")
         else:
             detected_provider, detected_model = _detect_provider()
 
@@ -183,17 +190,29 @@ class _OpenClawRuntime(Runtime):
         import uuid
 
         # Build prompt from content blocks
+        # OpenClaw agent has an `image` tool — reference image paths directly
+        # so the agent can analyze them with its built-in vision capabilities.
         parts = []
         if self.system:
             parts.append(self.system)
             parts.append("")
 
+        image_paths = []
         for block in content:
             if block.get("type") == "text":
                 parts.append(block["text"])
             elif block.get("type") == "image":
                 path = block.get("path", "")
-                parts.append(f"[Attached image: {path}]")
+                if path:
+                    image_paths.append(path)
+
+        # Tell the agent to analyze attached images using its image tool
+        if image_paths:
+            paths_str = ", ".join(image_paths)
+            parts.append(
+                f"\nAnalyze the following image(s) using your image tool: {paths_str}"
+                f"\nIncorporate the visual analysis into your response."
+            )
 
         if response_format:
             parts.append(f"\nReturn ONLY valid JSON matching: {json.dumps(response_format)}")
@@ -222,9 +241,12 @@ class _OpenClawRuntime(Runtime):
                 f"{result.stderr.strip() or result.stdout.strip()}"
             )
 
-        # Parse JSON output
+        # Parse JSON output — extract reply text from payloads
         try:
             data = json.loads(result.stdout.strip())
+            payloads = data.get("result", {}).get("payloads", [])
+            if payloads:
+                return payloads[0].get("text", result.stdout.strip())
             return data.get("reply", data.get("message", result.stdout.strip()))
         except json.JSONDecodeError:
             return result.stdout.strip()
