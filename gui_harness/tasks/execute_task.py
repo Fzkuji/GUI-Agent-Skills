@@ -334,16 +334,24 @@ def execute_task(task: str, runtime=None, max_steps: int = 15, app_name: str = "
         # ── Tier 1: Full Phase 0 (LLM planning from screenshot) ──
         if action is None:
             t0 = time.time()
-            plan = plan_next_action(
-                task=task,
-                img_path=img_path,
-                step=step,
-                max_steps=max_steps,
-                history=history,
-                runtime=rt,
-            )
+            try:
+                plan = plan_next_action(
+                    task=task,
+                    img_path=img_path,
+                    step=step,
+                    max_steps=max_steps,
+                    history=history,
+                    runtime=rt,
+                )
+                action = plan.get("action", "done")
+            except Exception as e:
+                # LLM call failed (timeout, etc.) — reset runtime and retry next step
+                print(f"  [step {step}] Tier 1: ERROR {e.__class__.__name__}, resetting runtime", file=sys.stderr)
+                if hasattr(rt, '_inner') and hasattr(rt._inner, 'reset'):
+                    rt._inner.reset()
+                plan = {"action": "retry", "reasoning": f"LLM error: {e}"}
+                action = "retry"
             timing["plan_llm"] = round(time.time() - t0, 2)
-            action = plan.get("action", "done")
             decision_tier = 1
             print(f"  [step {step}] Tier 1: LLM planned {action}", file=sys.stderr)
 
@@ -369,14 +377,20 @@ def execute_task(task: str, runtime=None, max_steps: int = 15, app_name: str = "
         # Execute action
         t0 = time.time()
         if action in COORD_ACTIONS:
-            result = _execute_coord_action(
-                action=action,
-                plan=plan,
-                task=task,
-                img_path=img_path,
-                app_name=app_name,
-                runtime=rt,
-            )
+            try:
+                result = _execute_coord_action(
+                    action=action,
+                    plan=plan,
+                    task=task,
+                    img_path=img_path,
+                    app_name=app_name,
+                    runtime=rt,
+                )
+            except Exception as e:
+                print(f"  [step {step}] Execute ERROR: {e.__class__.__name__}, resetting runtime", file=sys.stderr)
+                if hasattr(rt, '_inner') and hasattr(rt._inner, 'reset'):
+                    rt._inner.reset()
+                result = {"success": False, "error": str(e)}
         elif action in NO_COORD_ACTIONS:
             result = _execute_no_coord_action(action, plan)
         else:
