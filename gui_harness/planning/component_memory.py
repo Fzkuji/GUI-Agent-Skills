@@ -61,6 +61,9 @@ def detect_components(img_path: str, conf: float = 0.1) -> dict:
 # Phase 2: Memory Matching
 # ═══════════════════════════════════════════
 
+FORGET_THRESHOLD = 30  # Delete component after this many consecutive misses
+
+
 def match_memory_components(
     app_name: str,
     img_path: str,
@@ -69,8 +72,9 @@ def match_memory_components(
     """Match saved component templates against the current screenshot.
 
     For each saved component, run template matching on the full screenshot.
-    Returns a list of matched components with their labels and click-space
-    coordinates.
+    Also updates activity tracking: matched components get seen_count++,
+    unmatched components get consecutive_misses++. Components that miss
+    FORGET_THRESHOLD times in a row are automatically deleted.
 
     Returns:
         list[dict]: Each dict has keys:
@@ -91,6 +95,7 @@ def match_memory_components(
 
     screen_gray = cv2.cvtColor(screen_img, cv2.COLOR_BGR2GRAY)
     matched = []
+    matched_names = set()
 
     for icon_file in components_dir.glob("*.png"):
         template = cv2.imread(str(icon_file))
@@ -117,10 +122,66 @@ def match_memory_components(
                 "confidence": round(float(max_val), 3),
                 "source": "memory",
             })
+            matched_names.add(icon_file.stem)
+
+    # Update activity tracking and forget stale components
+    _update_activity(app_dir, matched_names)
 
     # Sort by confidence descending
     matched.sort(key=lambda m: m["confidence"], reverse=True)
     return matched
+
+
+def _update_activity(app_dir: Path, matched_names: set[str]):
+    """Update component activity tracking after a match round.
+
+    - Matched components: seen_count++, consecutive_misses = 0, last_seen = now
+    - Unmatched components: consecutive_misses++
+    - Components with consecutive_misses >= FORGET_THRESHOLD: deleted
+    """
+    components = app_memory.load_components(app_dir)
+    if not components:
+        return
+
+    now = time.strftime("%Y-%m-%d %H:%M:%S")
+    to_delete = []
+
+    for name, comp in components.items():
+        if name in matched_names:
+            comp["last_seen"] = now
+            comp["seen_count"] = comp.get("seen_count", 0) + 1
+            comp["consecutive_misses"] = 0
+        else:
+            comp["consecutive_misses"] = comp.get("consecutive_misses", 0) + 1
+            if comp["consecutive_misses"] >= FORGET_THRESHOLD:
+                to_delete.append(name)
+
+    # Delete stale components
+    components_dir = app_dir / "components"
+    for name in to_delete:
+        # Remove icon file
+        icon_file = comp.get("icon_file", "")
+        if icon_file:
+            icon_path = app_dir / icon_file
+            if icon_path.exists():
+                try:
+                    icon_path.unlink()
+                except OSError:
+                    pass
+        # Also try by name
+        png_path = components_dir / f"{name}.png"
+        if png_path.exists():
+            try:
+                png_path.unlink()
+            except OSError:
+                pass
+        del components[name]
+
+    if to_delete:
+        import sys
+        print(f"  [memory] Forgot {len(to_delete)} stale components: {to_delete}", file=sys.stderr)
+
+    app_memory.save_components(app_dir, components)
 
 
 # ═══════════════════════════════════════════
