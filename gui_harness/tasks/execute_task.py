@@ -237,17 +237,24 @@ def execute_task(task: str, runtime=None, max_steps: int = 15, app_name: str = "
         app_name:   App name for component memory (default: "desktop").
 
     Returns:
-        dict: task, success, steps_taken, final_state, history
+        dict: task, success, steps_taken, history, timing
     """
     rt = runtime or _get_runtime()
     history = []
     completed = False
+    task_start = time.time()
 
     for step in range(1, max_steps + 1):
-        # Phase 0: Screenshot → LLM decides
-        img_path = _screenshot.take()
-        time.sleep(0.3)  # Brief pause for screen to settle
+        step_start = time.time()
+        timing = {}
 
+        # Phase 0: Screenshot → LLM decides
+        t0 = time.time()
+        img_path = _screenshot.take()
+        timing["screenshot"] = round(time.time() - t0, 2)
+        time.sleep(0.3)
+
+        t0 = time.time()
         plan = plan_next_action(
             task=task,
             img_path=img_path,
@@ -256,6 +263,7 @@ def execute_task(task: str, runtime=None, max_steps: int = 15, app_name: str = "
             history=history,
             runtime=rt,
         )
+        timing["plan_llm"] = round(time.time() - t0, 2)
 
         action = plan.get("action", "done")
 
@@ -266,6 +274,7 @@ def execute_task(task: str, runtime=None, max_steps: int = 15, app_name: str = "
                 "action": "retry",
                 "reasoning": plan.get("reasoning", "parse failed"),
                 "success": False,
+                "timing": timing,
             })
             continue
 
@@ -277,10 +286,12 @@ def execute_task(task: str, runtime=None, max_steps: int = 15, app_name: str = "
                 "action": "done",
                 "reasoning": plan.get("reasoning", ""),
                 "success": True,
+                "timing": timing,
             })
             break
 
         # Execute action
+        t0 = time.time()
         if action in COORD_ACTIONS:
             result = _execute_coord_action(
                 action=action,
@@ -294,9 +305,11 @@ def execute_task(task: str, runtime=None, max_steps: int = 15, app_name: str = "
             result = _execute_no_coord_action(action, plan)
         else:
             result = {"success": False, "error": f"Unknown action: {action}"}
+        timing["execute"] = round(time.time() - t0, 2)
 
         # Brief pause for UI to respond
         time.sleep(0.5)
+        timing["step_total"] = round(time.time() - step_start, 2)
 
         history.append({
             "step": step,
@@ -305,11 +318,14 @@ def execute_task(task: str, runtime=None, max_steps: int = 15, app_name: str = "
             "text": plan.get("text"),
             "reasoning": plan.get("reasoning", ""),
             "success": result.get("success", False),
+            "timing": timing,
         })
 
+    total_time = round(time.time() - task_start, 2)
     return {
         "task": task,
         "success": completed,
         "steps_taken": len(history),
+        "total_time": total_time,
         "history": history,
     }

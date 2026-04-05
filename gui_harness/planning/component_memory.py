@@ -430,19 +430,27 @@ def locate_target(
         runtime: GUIRuntime instance
 
     Returns:
-        dict with {cx, cy, name} if found, None if not found.
+        dict with {cx, cy, name, timing} if found, None if not found.
     """
+    import sys
+    _timing = {}
+
     # Phase 1: Detection
+    t0 = time.time()
     detection = detect_components(img_path)
     icons = detection["icons"]
     texts = detection["texts"]
+    _timing["phase1_detect"] = round(time.time() - t0, 2)
+    print(f"  [locate] Phase 1: {len(icons)} icons, {len(texts)} texts ({_timing['phase1_detect']}s)", file=sys.stderr)
 
     # Phase 2: Memory matching
+    t0 = time.time()
     known_components = match_memory_components(app_name, img_path)
     known_names = {c["name"] for c in known_components}
+    _timing["phase2_memory"] = round(time.time() - t0, 2)
+    print(f"  [locate] Phase 2: {len(known_components)} matched ({_timing['phase2_memory']}s)", file=sys.stderr)
 
     # Also include OCR texts as "known" elements (they have labels + coordinates)
-    # OCR texts are always available and don't need labeling
     all_known = list(known_components)
     for t in texts:
         all_known.append({
@@ -456,6 +464,7 @@ def locate_target(
         })
 
     # Phase 3: Ask LLM to find target in known components
+    t0 = time.time()
     if all_known:
         result = find_target_in_known(
             task=task,
@@ -464,14 +473,18 @@ def locate_target(
             texts=texts,
             runtime=runtime,
         )
+        _timing["phase3_llm"] = round(time.time() - t0, 2)
+        print(f"  [locate] Phase 3: found={result.get('found', False)} ({_timing['phase3_llm']}s)", file=sys.stderr)
         if result.get("found"):
             return {
                 "cx": result.get("cx", 0),
                 "cy": result.get("cy", 0),
                 "name": result.get("name", target),
+                "timing": _timing,
             }
 
     # Phase 4: Label unknown components one by one
+    t0 = time.time()
     found = label_unknown_components(
         task=task,
         target=target,
@@ -481,5 +494,9 @@ def locate_target(
         app_name=app_name,
         runtime=runtime,
     )
+    _timing["phase4_label"] = round(time.time() - t0, 2)
+    print(f"  [locate] Phase 4: found={'yes' if found else 'no'} ({_timing['phase4_label']}s)", file=sys.stderr)
 
+    if found:
+        found["timing"] = _timing
     return found
