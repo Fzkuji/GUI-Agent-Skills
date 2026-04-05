@@ -353,18 +353,13 @@ def label_unknown_components(
                 os.rename(crop_path, final_path)
                 temp_crops.remove(crop_path)
 
-                # Save to components.json
+                # Save to components.json (no position — it changes every time)
                 components = app_memory.load_components(app_dir)
                 components[label] = {
                     "type": icon.get("type", "icon"),
                     "source": "gpa_detector",
-                    "cx": icon.get("cx", 0),
-                    "cy": icon.get("cy", 0),
-                    "w": w,
-                    "h": h,
                     "icon_file": f"components/{safe_label}.png",
                     "label": label,
-                    "confidence": icon.get("confidence", 0),
                     "learned_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                     "last_seen": time.strftime("%Y-%m-%d %H:%M:%S"),
                     "seen_count": 1,
