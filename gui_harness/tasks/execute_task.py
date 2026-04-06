@@ -26,6 +26,7 @@ from agentic import agentic_function
 from gui_harness.utils import parse_json
 from gui_harness.perception import screenshot as _screenshot
 from gui_harness.action import input as _input
+from gui_harness.action.general_action import general_action
 from gui_harness.planning.component_memory import (
     locate_target,
     identify_state,
@@ -72,16 +73,16 @@ def decide_next_action(
       {"action": "drag", "target": "start element", "target_end": "end element"}
 
     2. Free action (you describe what to do, an agent will execute it freely):
-      {"action": "free", "task": "read the contents of test2.docx and summarize the answers"}
-      {"action": "free", "task": "type 'baaad' after the Grammar test 2: line in the document"}
-      {"action": "free", "task": "save the current file with Ctrl+S"}
+      {"action": "general", "task": "read the contents of test2.docx and summarize the answers"}
+      {"action": "general", "task": "type 'baaad' after the Grammar test 2: line in the document"}
+      {"action": "general", "task": "save the current file with Ctrl+S"}
       The agent can use any tools: run commands, read/write files, use keyboard, etc.
 
     3. Done:
       {"action": "done", "reasoning": "task is complete"}
 
     Tips:
-    - Use "free" for complex operations (reading files, typing, running commands)
+    - Use "general" for complex operations (reading files, typing, running commands)
     - Use GUI actions only when you need to click/interact with a specific UI element
     - Be efficient — minimize the number of steps
 
@@ -130,39 +131,6 @@ Return ONLY valid JSON."""
         if '"done"' in reply_lower or "task is complete" in reply_lower:
             return {"action": "done", "reasoning": f"Parsed from text: {reply[:200]}"}
         return {"action": "retry", "reasoning": f"Could not parse: {reply[:200]}"}
-
-
-# ═══════════════════════════════════════════
-# Free action — agent executes freely
-# ═══════════════════════════════════════════
-
-@agentic_function(summarize={"depth": 0, "siblings": 0})
-def free_action(sub_task: str, runtime=None) -> dict:
-    """Execute a sub-task freely using any available tools.
-
-    You are given a specific sub-task to complete. Use whatever tools
-    and methods you have available: run shell commands, read/write files,
-    use keyboard shortcuts via pyautogui, etc.
-
-    Complete the sub-task and report the result.
-
-    Return JSON:
-    {
-      "success": true/false,
-      "output": "what you did and the result",
-      "error": null or "error description"
-    }
-    """
-    rt = runtime or _get_runtime()
-
-    reply = rt.exec(content=[
-        {"type": "text", "text": f"Sub-task: {sub_task}\n\nComplete this and return JSON with success/output/error."},
-    ])
-
-    try:
-        return parse_json(reply)
-    except Exception:
-        return {"success": True, "output": reply[:500]}
 
 
 # ═══════════════════════════════════════════
@@ -284,7 +252,7 @@ def execute_task(task: str, runtime=None, max_steps: int = 30, app_name: str = "
         # Identify state (skip for consecutive free/execute actions)
         last_action = history[-1].get("action") if history else None
         skip_state = (
-            last_action in ("free", "execute")
+            last_action in ("general", "execute")
             and len(history) >= 2
             and history[-1].get("state_before") == history[-1].get("state_after")
         )
@@ -347,16 +315,16 @@ def execute_task(task: str, runtime=None, max_steps: int = 30, app_name: str = "
             if action in GUI_ACTIONS:
                 result = _execute_gui_action(
                     action, plan, task, img_path, app_name, rt)
-            elif action == "free":
+            elif action == "general":
                 # Agent executes freely — can use any tools
                 sub_task = plan.get("task", plan.get("target", ""))
-                result = free_action(sub_task=sub_task, runtime=rt)
+                result = general_action(sub_task=sub_task, runtime=rt)
             elif action == "execute":
                 result = _execute_code(plan.get("code", ""))
             else:
                 # Unknown action — treat as free action
                 sub_task = plan.get("task", plan.get("target", plan.get("code", "")))
-                result = free_action(sub_task=sub_task, runtime=rt)
+                result = general_action(sub_task=sub_task, runtime=rt)
         except Exception as e:
             print(f"  [step {step}] Execute ERROR: {e.__class__.__name__}", file=sys.stderr)
             if hasattr(rt, '_inner') and hasattr(rt._inner, 'reset'):
