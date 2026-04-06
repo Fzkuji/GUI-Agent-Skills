@@ -63,33 +63,27 @@ def decide_next_action(
 ) -> dict:
     """Look at the current screen and decide what to do next.
 
-    You are a GUI automation agent. You can do ANYTHING to complete the task:
-    - Click/double-click/right-click UI elements (we will locate them for you)
-    - Type text, press keys, use keyboard shortcuts
-    - Execute shell commands on the system
-    - Read files, run scripts, install packages
-    - Any combination of the above
+    You have two ways to act:
 
-    For GUI click operations, use these action types and describe the target:
+    1. GUI actions (we handle precise coordinate locating for you):
       {"action": "click", "target": "description of element to click"}
       {"action": "double_click", "target": "description of element"}
       {"action": "right_click", "target": "description of element"}
       {"action": "drag", "target": "start element", "target_end": "end element"}
-    We will handle finding the exact coordinates via visual detection.
 
-    For everything else, use "execute" and provide the code/command:
-      {"action": "execute", "code": "python3 -c 'print(1+1)'"}
-      {"action": "execute", "code": "xdg-open /home/user/Desktop/file.docx"}
-      {"action": "execute", "code": "python3 -c \\"import pyautogui; pyautogui.hotkey('ctrl','s')\\""}
+    2. Free action (you describe what to do, an agent will execute it freely):
+      {"action": "free", "task": "read the contents of test2.docx and summarize the answers"}
+      {"action": "free", "task": "type 'baaad' after the Grammar test 2: line in the document"}
+      {"action": "free", "task": "save the current file with Ctrl+S"}
+      The agent can use any tools: run commands, read/write files, use keyboard, etc.
 
-    Special actions:
+    3. Done:
       {"action": "done", "reasoning": "task is complete"}
 
     Tips:
-    - You can read file contents via execute + python, much faster than scrolling
-    - Use keyboard shortcuts (via pyautogui in execute) for efficiency
-    - Desktop icons need double_click to open
-    - Minimize the number of steps — be efficient
+    - Use "free" for complex operations (reading files, typing, running commands)
+    - Use GUI actions only when you need to click/interact with a specific UI element
+    - Be efficient — minimize the number of steps
 
     Return ONLY valid JSON.
     """
@@ -139,7 +133,40 @@ Return ONLY valid JSON."""
 
 
 # ═══════════════════════════════════════════
-# Action execution
+# Free action — agent executes freely
+# ═══════════════════════════════════════════
+
+@agentic_function(summarize={"depth": 0, "siblings": 0})
+def free_action(sub_task: str, runtime=None) -> dict:
+    """Execute a sub-task freely using any available tools.
+
+    You are given a specific sub-task to complete. Use whatever tools
+    and methods you have available: run shell commands, read/write files,
+    use keyboard shortcuts via pyautogui, etc.
+
+    Complete the sub-task and report the result.
+
+    Return JSON:
+    {
+      "success": true/false,
+      "output": "what you did and the result",
+      "error": null or "error description"
+    }
+    """
+    rt = runtime or _get_runtime()
+
+    reply = rt.exec(content=[
+        {"type": "text", "text": f"Sub-task: {sub_task}\n\nComplete this and return JSON with success/output/error."},
+    ])
+
+    try:
+        return parse_json(reply)
+    except Exception:
+        return {"success": True, "output": reply[:500]}
+
+
+# ═══════════════════════════════════════════
+# GUI action execution
 # ═══════════════════════════════════════════
 
 def _execute_gui_action(action, plan, task, img_path, app_name, runtime):
@@ -254,10 +281,10 @@ def execute_task(task: str, runtime=None, max_steps: int = 30, app_name: str = "
         timing["screenshot"] = round(time.time() - t0, 2)
         time.sleep(0.3)
 
-        # Identify state (skip for consecutive non-visual actions)
+        # Identify state (skip for consecutive free/execute actions)
         last_action = history[-1].get("action") if history else None
         skip_state = (
-            last_action == "execute"
+            last_action in ("free", "execute")
             and len(history) >= 2
             and history[-1].get("state_before") == history[-1].get("state_after")
         )
@@ -320,11 +347,16 @@ def execute_task(task: str, runtime=None, max_steps: int = 30, app_name: str = "
             if action in GUI_ACTIONS:
                 result = _execute_gui_action(
                     action, plan, task, img_path, app_name, rt)
+            elif action == "free":
+                # Agent executes freely — can use any tools
+                sub_task = plan.get("task", plan.get("target", ""))
+                result = free_action(sub_task=sub_task, runtime=rt)
             elif action == "execute":
                 result = _execute_code(plan.get("code", ""))
             else:
-                # Unknown action — try to execute as code
-                result = _execute_code(plan.get("code", plan.get("target", "")))
+                # Unknown action — treat as free action
+                sub_task = plan.get("task", plan.get("target", plan.get("code", "")))
+                result = free_action(sub_task=sub_task, runtime=rt)
         except Exception as e:
             print(f"  [step {step}] Execute ERROR: {e.__class__.__name__}", file=sys.stderr)
             if hasattr(rt, '_inner') and hasattr(rt._inner, 'reset'):
