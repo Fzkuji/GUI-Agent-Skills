@@ -151,7 +151,7 @@ class GUIRuntime(Runtime):
         else:
             raise ValueError(f"Unknown provider: {detected_provider}")
 
-        super().__init__(model=use_model)
+        super().__init__(model=use_model, max_retries=1)
         self.provider = detected_provider
 
     def _call(
