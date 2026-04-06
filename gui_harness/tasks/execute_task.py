@@ -55,82 +55,110 @@ def _get_runtime():
 # LLM decision function
 # ═══════════════════════════════════════════
 
+def _build_history_summary(history):
+    """Build a text summary of recent action history."""
+    if not history:
+        return ""
+    lines = []
+    for h in history[-5:]:
+        status = "ok" if h.get("success") else "FAIL"
+        act = h.get("action", "?")
+        detail = h.get("target", h.get("code", ""))
+        if detail:
+            detail = str(detail)[:50]
+        lines.append(f"  {h['step']}. [{status}] {act}: {detail}")
+        if h.get("output"):
+            lines.append(f"     output: {str(h['output'])[:200]}")
+    return f"\nRecent actions:\n" + "\n".join(lines)
+
+
 @agentic_function(summarize={"depth": 0, "siblings": 0})
-def decide_next_action(
+def decide_action_type(
     task: str,
-    img_path: str,
     step: int,
     max_steps: int,
     history: list,
-    known_transitions: list = None,
     system_context: str = "",
     runtime=None,
 ) -> dict:
-    """Look at the current screen and decide what to do next.
+    """Decide whether the next step needs GUI interaction or not.
 
-    You are a GUI agent. Prioritize visual GUI interactions.
+    Based on the task description and action history, choose:
 
-    Actions that need coordinate locating (we find the target for you):
-      {"action": "click", "target": "description of element"}
-      {"action": "double_click", "target": "description of element"}
-      {"action": "right_click", "target": "description of element"}
-      {"action": "drag", "target": "start element", "target_end": "end element"}
+    1. "gui" — you need to see and interact with the screen
+       (click buttons, open files, type in fields, use shortcuts, scroll, etc.)
+       {"type": "gui"}
 
-    Direct actions (execute immediately, no detection needed):
-      {"action": "type", "text": "text to type"}
-      {"action": "press", "key": "enter"}  (enter/escape/tab/delete/up/down/left/right/etc.)
-      {"action": "hotkey", "keys": "ctrl+s"}  (ctrl+c, ctrl+v, ctrl+z, ctrl+a, alt+f4, etc.)
-      {"action": "scroll", "direction": "down"}  (up/down)
+    2. "general" — you can complete this step without seeing the screen
+       (read/write files, edit code, run commands, process data, etc.)
+       {"type": "general", "task": "description of what to do"}
 
-    General action (only when task does NOT need GUI interaction):
-      {"action": "general", "task": "description of what to do"}
-      Use for: reading file contents, editing code, running commands.
-
-    Done:
-      {"action": "done", "reasoning": "task is complete"}
-
-    Decision guide:
-    - Interact with visible UI element → click / double_click
-    - Open file on desktop → double_click
-    - Type text into focused field → type
-    - Save file → hotkey ctrl+s
-    - Navigate with keyboard → press / hotkey
-    - Read/edit code without GUI → general
-    - Be efficient — minimize steps
+    3. "done" — the task is fully complete
+       {"type": "done", "reasoning": "why task is complete"}
 
     Return ONLY valid JSON.
     """
     rt = runtime or _get_runtime()
 
-    history_summary = ""
-    if history:
-        lines = []
-        for h in history[-5:]:
-            status = "ok" if h.get("success") else "FAIL"
-            act = h.get("action", "?")
-            detail = h.get("target", h.get("code", ""))
-            if detail:
-                detail = str(detail)[:50]
-            lines.append(f"  {h['step']}. [{status}] {act}: {detail}")
-            # Include execute output if available
-            if h.get("output"):
-                lines.append(f"     output: {str(h['output'])[:200]}")
-        history_summary = f"\nRecent actions:\n" + "\n".join(lines)
-
-    hints = ""
-    if known_transitions:
-        hint_lines = "\n".join(
-            f"  - {t['action']}:{t['target']} (used {t['use_count']}x before)"
-            for t in known_transitions[:5]
-        )
-        hints = f"\nKnown transitions from this screen state (hints):\n{hint_lines}"
-
+    history_summary = _build_history_summary(history)
     sys_ctx = f"\n{system_context}" if system_context else ""
 
     context = f"""Task: {task}
-Step {step}/{max_steps}.{sys_ctx}{history_summary}{hints}
+Step {step}/{max_steps}.{sys_ctx}{history_summary}
 
-Look at the screenshot and decide the next action.
+Does the next step need GUI interaction (seeing/clicking the screen)?
+Or can it be done without looking at the screen (file operations, commands)?
+Return ONLY valid JSON."""
+
+    reply = rt.exec(content=[{"type": "text", "text": context}])
+
+    try:
+        return parse_json(reply)
+    except Exception:
+        reply_lower = reply.lower()
+        if '"done"' in reply_lower or "task is complete" in reply_lower:
+            return {"type": "done", "reasoning": reply[:200]}
+        return {"type": "gui"}  # Default to GUI if can't parse
+
+
+@agentic_function(summarize={"depth": 0, "siblings": 0})
+def plan_gui_action(
+    task: str,
+    img_path: str,
+    step: int,
+    max_steps: int,
+    history: list,
+    runtime=None,
+) -> dict:
+    """Look at the screenshot and decide the specific GUI action.
+
+    You can see the current screen. Choose one action:
+
+    Actions that need coordinate locating (we find the target):
+      {"action": "click", "target": "description of element"}
+      {"action": "double_click", "target": "description of element"}
+      {"action": "right_click", "target": "description of element"}
+      {"action": "drag", "target": "start element", "target_end": "end element"}
+
+    Direct actions (keyboard/input):
+      {"action": "type", "text": "text to type"}
+      {"action": "press", "key": "enter"}
+      {"action": "hotkey", "keys": "ctrl+s"}
+      {"action": "scroll", "direction": "down"}
+
+    If you realize the task is done:
+      {"action": "done", "reasoning": "task is complete"}
+
+    Return ONLY valid JSON.
+    """
+    rt = runtime or _get_runtime()
+
+    history_summary = _build_history_summary(history)
+
+    context = f"""Task: {task}
+Step {step}/{max_steps}.{history_summary}
+
+Look at the screenshot and decide the GUI action.
 Return ONLY valid JSON."""
 
     reply = rt.exec(content=[
@@ -143,7 +171,7 @@ Return ONLY valid JSON."""
     except Exception:
         reply_lower = reply.lower()
         if '"done"' in reply_lower or "task is complete" in reply_lower:
-            return {"action": "done", "reasoning": f"Parsed from text: {reply[:200]}"}
+            return {"action": "done", "reasoning": reply[:200]}
         return {"action": "retry", "reasoning": f"Could not parse: {reply[:200]}"}
 
 
@@ -313,52 +341,86 @@ def execute_task(task: str, runtime=None, max_steps: int = 30, app_name: str = "
     for step in range(1, max_steps + 1):
         step_start = time.time()
         timing = {}
+        current_state = None
 
-        # Screenshot
+        # Step 1: Decide action type (text only, no screenshot)
+        t0 = time.time()
+        try:
+            type_decision = decide_action_type(
+                task=task, step=step, max_steps=max_steps,
+                history=history,
+                system_context=system_context if step == 1 else "",
+                runtime=rt,
+            )
+        except Exception as e:
+            print(f"  [step {step}] decide ERROR: {e.__class__.__name__}, resetting", file=sys.stderr)
+            if hasattr(rt, '_inner') and hasattr(rt._inner, 'reset'):
+                rt._inner.reset()
+            type_decision = {"type": "gui"}  # Default to GUI on error
+        timing["decide_type"] = round(time.time() - t0, 2)
+
+        action_type = type_decision.get("type", "gui")
+
+        # Handle done
+        if action_type == "done":
+            completed = True
+            history.append({
+                "step": step, "action": "done",
+                "reasoning": type_decision.get("reasoning", ""),
+                "success": True, "timing": timing,
+                "state_before": None, "state_after": None,
+            })
+            print(f"  [step {step}] done", file=sys.stderr)
+            break
+
+        # Handle general (no screenshot needed)
+        if action_type == "general":
+            sub_task = type_decision.get("task", "")
+            print(f"  [step {step}] general: {sub_task[:60]}", file=sys.stderr)
+            t0 = time.time()
+            try:
+                result = general_action(sub_task=sub_task, runtime=rt)
+            except Exception as e:
+                print(f"  [step {step}] general ERROR: {e.__class__.__name__}", file=sys.stderr)
+                if hasattr(rt, '_inner') and hasattr(rt._inner, 'reset'):
+                    rt._inner.reset()
+                result = {"success": False, "output": str(e)}
+            timing["execute"] = round(time.time() - t0, 2)
+            timing["step_total"] = round(time.time() - step_start, 2)
+            history.append({
+                "step": step, "action": "general",
+                "target": sub_task[:100],
+                "output": result.get("output", ""),
+                "reasoning": type_decision.get("reasoning", ""),
+                "success": result.get("success", False),
+                "timing": timing,
+                "state_before": None, "state_after": None,
+            })
+            time.sleep(0.5)
+            continue
+
+        # Handle GUI — take screenshot, then plan specific action
+        print(f"  [step {step}] gui → taking screenshot...", file=sys.stderr)
         t0 = time.time()
         img_path = _screenshot.take()
         timing["screenshot"] = round(time.time() - t0, 2)
         time.sleep(0.3)
 
-        # Identify state (skip for consecutive free/execute actions)
-        last_action = history[-1].get("action") if history else None
-        skip_state = (
-            last_action in ("general", "execute")
-            and len(history) >= 2
-            and history[-1].get("state_before") == history[-1].get("state_after")
-        )
-
-        if skip_state:
-            current_state = history[-1].get("state_after")
-            timing["state_identify"] = 0
-        else:
-            t0 = time.time()
-            current_state, _ = identify_state(app_name, img_path)
-            timing["state_identify"] = round(time.time() - t0, 2)
-
-        # Transition hints
-        known_transitions = []
-        if current_state is not None:
-            known_transitions = get_available_transitions(app_name, current_state)
-
-        # LLM decides
         t0 = time.time()
         try:
-            plan = decide_next_action(
+            plan = plan_gui_action(
                 task=task, img_path=img_path, step=step, max_steps=max_steps,
-                history=history, known_transitions=known_transitions,
-                system_context=system_context if step == 1 else "",
-                runtime=rt,
+                history=history, runtime=rt,
             )
         except Exception as e:
-            print(f"  [step {step}] LLM ERROR: {e.__class__.__name__}, resetting", file=sys.stderr)
+            print(f"  [step {step}] plan_gui ERROR: {e.__class__.__name__}, resetting", file=sys.stderr)
             if hasattr(rt, '_inner') and hasattr(rt._inner, 'reset'):
                 rt._inner.reset()
             plan = {"action": "retry", "reasoning": str(e)}
-        timing["plan_llm"] = round(time.time() - t0, 2)
+        timing["plan_gui"] = round(time.time() - t0, 2)
 
         action = plan.get("action", "done")
-        print(f"  [step {step}] {action} (hints={'yes' if known_transitions else 'no'})", file=sys.stderr)
+        print(f"  [step {step}] gui → {action}", file=sys.stderr)
 
         # Retry
         if action == "retry":
@@ -381,7 +443,7 @@ def execute_task(task: str, runtime=None, max_steps: int = 30, app_name: str = "
             })
             break
 
-        # Execute
+        # Execute GUI action (screenshot already taken above)
         t0 = time.time()
         result = {}
         try:
@@ -390,11 +452,6 @@ def execute_task(task: str, runtime=None, max_steps: int = 30, app_name: str = "
                     action, plan, task, img_path, app_name, rt)
             elif action in DIRECT_ACTIONS:
                 result = _execute_direct_action(action, plan)
-            elif action == "general":
-                sub_task = plan.get("task", plan.get("target", ""))
-                result = general_action(sub_task=sub_task, runtime=rt)
-            elif action == "execute":
-                result = _execute_code(plan.get("code", ""))
             else:
                 # Unknown action — treat as general action
                 sub_task = plan.get("task", plan.get("target", plan.get("code", "")))
