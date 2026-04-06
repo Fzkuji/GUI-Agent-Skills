@@ -333,6 +333,11 @@ def execute_task(task: str, runtime=None, max_steps: int = 30, app_name: str = "
         dict: task, success, steps_taken, total_time, history
     """
     rt = runtime or _get_runtime()
+
+    # Reset runtime to ensure clean session (no leftover context from previous tasks)
+    if hasattr(rt, '_inner') and hasattr(rt._inner, 'reset'):
+        rt._inner.reset()
+
     history = []
     completed = False
     system_context = _build_system_context(task, app_name)
