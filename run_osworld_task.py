@@ -45,9 +45,11 @@ def setup_vm(vm_ip: str, task_config: dict):
     """Revert VM to snapshot and download task files."""
     print(f"Reverting VM to init_state...")
     subprocess.run([VMRUN, "revertToSnapshot", VMX, "init_state"],
-                   capture_output=True, timeout=60)
-    subprocess.run([VMRUN, "start", VMX, "nogui"],
-                   capture_output=True, timeout=60)
+                   capture_output=True, timeout=120)
+    # start may hang if VM is already running after revert; run in background
+    subprocess.Popen([VMRUN, "start", VMX, "nogui"],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(5)
 
     # Wait for VM API
     vm_url = f"http://{vm_ip}:{VM_PORT}"
