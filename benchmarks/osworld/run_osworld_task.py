@@ -91,6 +91,13 @@ def setup_vm(vm_ip: str, task_config: dict):
     except Exception as e:
         print(f"  Proxy setup warning: {e}")
 
+    # Set VM resolution to standard 1920x1080 (snapshot may have non-standard resolution)
+    try:
+        _exec("xrandr --output Virtual-1 --mode 1920x1080 2>/dev/null || true")
+        time.sleep(0.5)
+    except Exception:
+        pass
+
     # Use official OSWorld SetupController for all config steps
     sys.path.insert(0, OSWORLD_DIR)
     from desktop_env.controllers.setup import SetupController
