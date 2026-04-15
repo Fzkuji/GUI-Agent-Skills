@@ -27,6 +27,13 @@
 
 ---
 
+<p align="center">
+  <b>🇺🇸 English</b> ·
+  <a href="docs/README_CN.md">🇨🇳 中文</a>
+</p>
+
+---
+
 ## News
 
 - **[2026-04-14]** 🏆 **OSWorld Multi-Apps 79.8%** — 72.6/91 evaluated tasks. 4-phase step loop + CLI session persistence + PRESERVE FORMAT work habit. [Results →](benchmarks/osworld/multi_apps.md)
