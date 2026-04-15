@@ -1,17 +1,17 @@
 # OSWorld OS Domain — GUI Agent Harness Results
 
-> 24 tasks | **90.9%** (20/22 evaluated) | 2026-04-15
+> 24 tasks | **91.3%** (21/23 evaluated) | 2026-04-15
 
 ## Summary
 
 | Metric | Value |
 |--------|-------|
 | Total tasks | 24 |
-| Evaluated | 22 |
-| Infeasible (no auto-score) | 2 |
-| ✅ Pass (1.0) | 20 |
+| Evaluated | 23 |
+| Infeasible (no auto-score) | 1 |
+| ✅ Pass (1.0) | 21 |
 | ❌ Fail (0.0) | 2 |
-| **Score** | **90.9%** (20/22) |
+| **Score** | **91.3%** (21/23) |
 
 **Test environment:** Ubuntu ARM VM (VMware Fusion), 1920x1080, Claude Opus 4.6 via Claude Code CLI
 
@@ -30,6 +30,7 @@
 | 9 | b6781586 | Set timezone to UTC+0 | 1.0 ✅ | 2 | 51s | timedatectl |
 | 10 | b3d4a89c | Switch on Bluetooth (infeasible task) | 1.0 ✅ | 12 | ~1200s | manual 1.0, VM has no BT hardware, agent tried all methods |
 | 11 | 3ce045a0 | Increase text size (broken glasses) | 1.0 ✅ | 3 | 75s | gsettings text-scaling-factor |
+| 12 | fe41f596 | Display battery percentage (infeasible) | 1.0 ✅ | 4 | ~300s | manual 1.0, VM has no battery, gsettings command correct |
 | 13 | a4d98375 | Auto-lock computer when leaving | 1.0 ✅ | 6 | 324s | Settings > Privacy > Screen |
 | 14 | 13584542 | Set terminal size to persist after reboot | 1.0 ✅ | 2 | 63s | |
 | 15 | 23393935 | Recursively copy .jpg files from photos dir | 1.0 ✅ | 2 | 61s | find + cp |
@@ -45,6 +46,5 @@
 
 | # | Task ID | Instruction | Notes |
 |---|---------|-------------|-------|
-| 12 | fe41f596 | Display battery percentage | Evaluator: infeasible |
 | 17 | c288e301 | Set default Python to Python4 | Evaluator: infeasible |
 | 18 | 4783cc41 | Copy directory hierarchy | Evaluator: infeasible |
