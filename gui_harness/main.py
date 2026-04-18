@@ -37,10 +37,6 @@ from gui_harness.constants import GUI_SYSTEM_PROMPT
             "placeholder": "e.g. Open Firefox and go to google.com",
             "multiline": True,
         },
-        "work_dir": {
-            "description": "Absolute path for any files the agent writes (screenshots, workflow records, scratch). Runtime's codex --cd target, so relative paths the LLM issues land here.",
-            "placeholder": "/Users/you/.openprogram/gui_work",
-        },
         "max_steps": {
             "description": "Maximum number of actions before giving up",
             "options": ["5", "10", "15", "30"],
@@ -54,7 +50,6 @@ from gui_harness.constants import GUI_SYSTEM_PROMPT
 )
 def gui_agent(
     task: str,
-    work_dir: str,
     max_steps: int = 15,
     app_name: str = "desktop",
     runtime=None,
@@ -72,11 +67,12 @@ def gui_agent(
     Each step passes structured feedback to the next, so the agent tracks
     progress explicitly without relying solely on LLM context memory.
 
+    The runtime's working directory must be configured before calling this
+    function (webui sets it via exec_rt.set_workdir(); CLI uses --work-dir).
+    Any relative paths codex writes land there.
+
     Args:
         task: What to do, in natural language.
-        work_dir: Absolute path for files the agent writes (screenshots,
-                  workflow records, scratch). Runtime's codex runs with this
-                  as cwd so relative paths do not leak into other repos.
         max_steps: Maximum number of actions (default: 15).
         app_name: App name for component memory (default: "desktop").
         runtime: LLM runtime instance.
@@ -86,10 +82,6 @@ def gui_agent(
     """
     if runtime is None:
         raise ValueError("gui_agent() requires a runtime argument")
-
-    work_dir = os.path.abspath(os.path.expanduser(work_dir))
-    os.makedirs(work_dir, exist_ok=True)
-    runtime.set_workdir(work_dir)
 
     from gui_harness.tasks.execute_task import (
         gui_step, build_step_feedback, save_workflow_record, conclusion,
@@ -214,13 +206,16 @@ def main():
     if args.model:
         kwargs["model"] = args.model
     runtime = create_runtime(provider=args.provider or "auto", **kwargs)
+    work_dir = os.path.abspath(os.path.expanduser(args.work_dir))
+    os.makedirs(work_dir, exist_ok=True)
+    runtime.set_workdir(work_dir)
     print(f"Runtime: {type(runtime).__name__}")
     print(f"Task: {args.task}")
     print(f"Max steps: {args.max_steps}")
     print()
 
     # Execute
-    result = gui_agent(task=args.task, work_dir=args.work_dir, max_steps=args.max_steps, app_name=args.app, runtime=runtime)
+    result = gui_agent(task=args.task, max_steps=args.max_steps, app_name=args.app, runtime=runtime)
 
     # Report
     print()
