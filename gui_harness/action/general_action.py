@@ -26,9 +26,13 @@ def general_action(sub_task: str, task_context: str = "", runtime=None) -> dict:
     - Anything else you need
 
     IMPORTANT constraints:
-    - You are operating on a REMOTE Ubuntu VM, NOT on local macOS.
-      All commands and file operations must target the VM via its API.
-      Do NOT use local macOS commands, local file paths, or local applications.
+    - Environment: REMOTE Ubuntu VM, NOT local macOS. All commands and file
+      operations must target the VM via its API. Do NOT use local macOS
+      commands, local file paths, or local applications.
+    - EXPLORE FIRST: Before creating new files or writing scripts from scratch,
+      list the working directory on the VM (e.g., `ls /home/user/Desktop`,
+      `ls .` via the VM API) to check for existing scripts or templates you
+      can reuse.
     - When extracting or copying data (descriptions, names, numbers, text),
       always read directly from source files. Do NOT generate or paraphrase
       content from your own knowledge — copy verbatim from the actual data.
@@ -38,6 +42,15 @@ def general_action(sub_task: str, task_context: str = "", runtime=None) -> dict:
     - If curl/requests returns empty content, HTTP error, WAF challenge (202),
       or you cannot get real data, you MUST return success=false.
       NEVER fall back to generating data from your own knowledge.
+    - PRESERVE FORMAT: When modifying files, apply ONLY the changes the
+      sub-task explicitly requests. Do not resize, crop, reformat, or
+      restructure unless told to — keep original attributes (dimensions,
+      format, structure) intact.
+    - VERIFY OUTPUTS: Before returning success=true, sanity-check the output
+      against the sub-task spec. For images, check dimensions/format/size
+      (e.g., `python3 -c "from PIL import Image; im=Image.open('f.png');
+      print(im.size, im.mode)"` on the VM). Compare against any expected
+      values mentioned in the sub-task.
 
     Return JSON:
     {

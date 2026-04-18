@@ -394,12 +394,10 @@ def plan_next_action(
 ) -> dict:
     """Decide the next action to take toward completing the task.
 
-    You are a GUI automation agent. You see a screenshot of the current
-    screen, along with detected UI components, previous step results,
-    and a list of actions you can perform.
+    Input: a screenshot of the current screen, detected UI components,
+    previous step results, and a list of actions you can perform.
 
-    Return JSON for exactly ONE action from the available list.
-    You MUST include these fields:
+    Return JSON for exactly ONE action from the available list:
     {
       "call": "<action_name>",
       "args": { ... },
@@ -415,30 +413,14 @@ def plan_next_action(
     Decision guidelines:
     - Prefer GUI interaction (click, type, hotkey) over command-line ("general")
     - If <known_transitions> lists a relevant action, prefer it — it worked before
+    - If the same "general" sub-task already succeeded in a previous step,
+      do NOT repeat it. Move on to the next sub-task or verify the output.
     - Do NOT generate or paraphrase content from your own knowledge.
       All data must come from what is visible on screen or from actual files.
     - Choose "done" ONLY when you have strong evidence the task is fully
       complete. If a command ran but you haven't verified the output, do NOT
       choose "done" — choose an action to verify the result first.
     - If the previous step failed, plan a recovery (retry or alternative approach).
-
-    Work habits — follow these to avoid common mistakes:
-    - EXPLORE FIRST: Before starting work, check what files and scripts
-      already exist in the working directory (ls ~/Desktop, ls .). There may
-      be pre-written scripts or templates you can reuse instead of writing
-      from scratch.
-    - VERIFY OUTPUTS: After creating a file, verify it meets requirements.
-      For images: check dimensions, format, file size (e.g., identify file.png
-      or python3 -c "from PIL import Image; im=Image.open('f.png'); print(im.size, im.mode)").
-      Compare against any reference or expected values.
-    - DON'T REPEAT YOURSELF: If you've already done the same "general" action
-      in a previous step and it succeeded, do NOT repeat it. Move on to the
-      next sub-task or verify the output instead.
-    - PRESERVE FORMAT: When working with files, only make the changes
-      explicitly requested. Do not add extra transformations (resizing,
-      cropping, reformatting, restructuring) that the task didn't ask for.
-      Keep the original attributes (dimensions, format, structure) intact
-      unless the task specifically says otherwise.
     """
     if runtime is None:
         raise ValueError("plan_next_action() requires a runtime argument")
